@@ -666,15 +666,12 @@
             else return { examName: nameWithoutExt.replace(/_/g, ' ') || "Adsız Deneme", questionNo: "?", date: new Date().toISOString().split('T')[0], subject: detectedSubject, success: false };
         };
 
-const analyzeTopicWithAI = async (base64Data) => {
-            const useApiKey = currentApiKey || "";
-
-            if (!useApiKey || useApiKey.trim().length < 10) {
-                throw new Error("Geçerli bir API anahtarı bulunamadı. Lütfen Ayarlar'dan API kodunuzu girin.");
-            }
+        const analyzeTopicWithAI = async (base64Data) => {
+            const isCanvas = typeof __firebase_config !== 'undefined';
+            const useApiKey = isCanvas && !currentApiKey ? "" : currentApiKey;
+            if (!isCanvas && (!useApiKey || useApiKey.trim().length < 10)) throw new Error("Geçerli bir API anahtarı bulunamadı.");
             
-            // SORUNUN ÇÖZÜMÜ: Model adı Google'ın en güncel sunucusuna uyumlu hale getirildi.
-            const textModel = 'gemini-1.5-flash-latest';
+            const textModel = (isCanvas && !useApiKey) ? 'gemini-2.5-flash-preview-09-2025' : 'gemini-1.5-flash';
             const urlText = `https://generativelanguage.googleapis.com/v1beta/models/${textModel}:generateContent?key=${useApiKey}`;
             
             let mimeType = "image/jpeg";
@@ -689,26 +686,6 @@ const analyzeTopicWithAI = async (base64Data) => {
                     { inlineData: { mimeType: mimeType, data: base64WithoutPrefix } }
                 ]}]
             };
-
-            let retries = 3, delay = 1000;
-            while (retries > 0) {
-                try {
-                    const res = await fetch(urlText, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadText) });
-                    const result = await res.json();
-                    if (result.error) throw new Error(result.error.message);
-                    
-                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
-                    if(text.includes('|')) {
-                        const parts = text.split('|');
-                        return { subject: parts[0].trim(), topic: parts[1].replace(/[\n\r.]/g, '').trim() };
-                    }
-                    return { subject: "", topic: text.replace(/[\n\r.]/g, '') };
-                } catch (error) {
-                    retries--; if (retries === 0) throw error;
-                    await new Promise(r => setTimeout(r, delay)); delay *= 2;
-                }
-            }
-        };
 
             let retries = 3, delay = 1000;
             while (retries > 0) {
