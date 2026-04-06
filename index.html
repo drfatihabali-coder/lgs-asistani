@@ -358,7 +358,7 @@
                                     <i data-lucide="database" class="w-6 h-6 text-indigo-600"></i> Bu Analizi Ana Arşive Ekle
                                 </h3>
                                 <p class="text-sm text-slate-500">
-                                    JSON dosyasındaki <strong>yanlış sorular (AI)</strong> bulundu. Diğer istatistikleri girin.
+                                    Aşağıda tüm temel LGS dersleri listelenmiştir. Toplam soru sayısını girdiğinizde <strong>Doğru sayısı otomatik hesaplanır.</strong>
                                 </p>
                             </div>
                             <button onclick="window.aiJsonLogic.resetView()" class="text-xs text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">
@@ -388,7 +388,7 @@
                             <div class="mb-4 flex items-center justify-between">
                                 <div>
                                     <h4 class="text-base font-bold text-slate-800">Ders Bazlı Sonuç Girişi</h4>
-                                    <p class="text-[11px] text-slate-500 mt-1">"Yanlış (AI)" kısmı JSON verinize göre otomatik doldurulmuştur.</p>
+                                    <p class="text-[11px] text-slate-500 mt-1">Yapay zekanın json dosyasında bulduğu hatalı soru sayıları "Yanlış" kutularına eklendi.</p>
                                 </div>
                             </div>
 
@@ -405,6 +405,10 @@
                                 <span id="aijson-save-text">Tüm Veriyi Arşive Kaydet</span>
                             </button>
                         </div>
+                    </div>
+                    
+                    <div class="text-center text-xs text-slate-400 mt-8 font-mono">
+                        Yapay Zeka Analiz Tarihi: <span id="aijson-guncelleme-tarihi">-</span>
                     </div>
                 </div>
             </div>
@@ -1269,6 +1273,22 @@
                 ui.aijson.loading.classList.add('hidden-safe');
             },
 
+            // OTOMATİK HESAPLAMA (Toplam Soru - Yanlış - Boş = Doğru)
+            calc: (inputEl) => {
+                const row = inputEl.closest('.aijson-subject-row');
+                const total = parseInt(row.querySelector('.aijson-subj-total').value) || 0;
+                const incorrect = parseInt(row.querySelector('.aijson-subj-incorrect').value) || 0;
+                const blank = parseInt(row.querySelector('.aijson-subj-blank').value) || 0;
+                const correctEl = row.querySelector('.aijson-subj-correct');
+                
+                if (total > 0) {
+                    let correct = total - incorrect - blank;
+                    correctEl.value = correct >= 0 ? correct : 0;
+                } else if (inputEl.classList.contains('aijson-subj-total') && inputEl.value === "") {
+                    correctEl.value = ""; 
+                }
+            },
+
             arayuzuGuncelle: (data) => {
                 window.aiJsonLogic.currentData = data; 
                 
@@ -1287,7 +1307,7 @@
                 if(ui.aijson.examName) ui.aijson.examName.value = "";
 
                 ui.aijson.liste.innerHTML = ''; 
-                ui.aijson.subjectsForm.innerHTML = ''; // Gelişmiş veri giriş formunu temizle
+                ui.aijson.subjectsForm.innerHTML = ''; 
 
                 const derslerListesi = Object.values(data.dersler || {});
                 const maxDersSoru = derslerListesi.length > 0 ? Math.max(...derslerListesi.map(d => d.total || 0)) : 1;
@@ -1295,20 +1315,18 @@
                 window.aiJsonLogic.renkIndex = 0;
                 let formHtml = '';
 
+                // JSON'daki dersleri yukarıda görselleştiriyoruz
                 for (const [dersAdi, dersVerisi] of Object.entries(data.dersler || {})) {
                     const aktifRenk = window.aiJsonLogic.renkler[window.aiJsonLogic.renkIndex % window.aiJsonLogic.renkler.length];
                     window.aiJsonLogic.renkIndex++;
-                    
                     const dersYuzde = Math.min(((dersVerisi.total || 0) / maxDersSoru) * 100, 100);
 
-                    // 1. Görsel İstatistik Kartları (Yukarıdaki kısım)
                     let html = `
                     <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100 hover:shadow-md transition-shadow">
                         <div class="flex justify-between items-end mb-3">
                         <h4 class="font-bold text-lg text-slate-800">${dersAdi}</h4>
                         <span class="bg-white px-3 py-1 rounded-full text-sm font-bold text-slate-600 border border-slate-200 shadow-sm">${dersVerisi.total || 0} Soru</span>
                         </div>
-                        
                         <div class="w-full bg-slate-200 rounded-full h-1.5 mb-6 overflow-hidden">
                         <div class="${aktifRenk} h-1.5 rounded-full" style="width: ${dersYuzde}%"></div>
                         </div>
@@ -1333,19 +1351,25 @@
                     }
                     html += `</div></div>`;
                     ui.aijson.liste.innerHTML += html;
+                }
 
-                    // 2. Ders Bazlı Gelişmiş Giriş Formu (Alttaki kayıt kısmı)
+                // GÜNCELLEME: Tüm temel dersleri veri giriş formuna sabitliyoruz. (Hatasızları da girmek için)
+                DEFAULT_SUBJECTS.forEach(dersAdi => {
+                    // Eğer o ders JSON'da yoksa (sıfır hata yapılmışsa) 0 alır.
+                    const dersVerisi = data.dersler[dersAdi] || { total: 0, konular: {} };
                     const prefilledYanlis = dersVerisi.total || 0;
+                    const aktifRenkTxt = prefilledYanlis > 0 ? "text-slate-800" : "text-slate-500";
+                    
                     formHtml += `
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center gap-4 aijson-subject-row" data-subject="${dersAdi}">
-                        <div class="md:w-1/3 font-bold text-slate-800 flex items-center gap-2">
-                            <div class="w-2 h-2 rounded-full ${aktifRenk}"></div>
+                        <div class="md:w-1/4 font-bold ${aktifRenkTxt} flex items-center gap-2">
+                            <i data-lucide="book" class="w-4 h-4 text-indigo-400"></i>
                             ${dersAdi}
                         </div>
-                        <div class="md:w-2/3 grid grid-cols-4 gap-2">
+                        <div class="md:w-3/4 grid grid-cols-4 gap-2">
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Top. Soru</label>
-                                <input type="number" min="0" class="aijson-subj-total w-full px-3 py-2 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold text-slate-700 bg-slate-50" placeholder="Örn: 20">
+                                <input type="number" min="0" oninput="window.aiJsonLogic.calc(this)" class="aijson-subj-total w-full px-3 py-2 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold text-slate-700 bg-slate-50" placeholder="Örn: 20">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-emerald-600 uppercase mb-1">Doğru</label>
@@ -1353,16 +1377,16 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-rose-600 uppercase mb-1" title="JSON'dan çekildi">Yanlış (AI)</label>
-                                <input type="number" min="0" value="${prefilledYanlis}" class="aijson-subj-incorrect w-full px-3 py-2 rounded-lg border border-rose-200 outline-none focus:ring-2 focus:ring-rose-500 text-sm font-bold text-rose-700 bg-rose-100">
+                                <input type="number" min="0" value="${prefilledYanlis}" oninput="window.aiJsonLogic.calc(this)" class="aijson-subj-incorrect w-full px-3 py-2 rounded-lg border border-rose-200 outline-none focus:ring-2 focus:ring-rose-500 text-sm font-bold text-rose-700 bg-rose-100">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Boş</label>
-                                <input type="number" min="0" class="aijson-subj-blank w-full px-3 py-2 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold text-slate-700 bg-slate-50" placeholder="0">
+                                <input type="number" min="0" oninput="window.aiJsonLogic.calc(this)" class="aijson-subj-blank w-full px-3 py-2 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold text-slate-700 bg-slate-50" placeholder="0">
                             </div>
                         </div>
                     </div>
                     `;
-                }
+                });
 
                 ui.aijson.subjectsForm.innerHTML = formHtml;
                 setTimeout(() => lucide.createIcons(), 10);
@@ -1402,7 +1426,6 @@
                 reader.readAsText(file);
             },
             
-            // GÜNCELLENEN: Formdaki manuel verileri de okuyup kaydeden sistem
             saveToDatabase: async () => {
                 const data = window.aiJsonLogic.currentData;
                 if (!data || !data.dersler) {
@@ -1433,18 +1456,17 @@
                         subjects: []
                     };
 
-                    // Formdaki satırları bul ve değerleri oku
                     const rows = ui.aijson.subjectsForm.querySelectorAll('.aijson-subject-row');
                     
                     rows.forEach(row => {
                         const subjName = row.getAttribute('data-subject');
                         
-                        // Kullanıcının elle girdiği veya AI'nin doldurduğu değerleri al (Yoksa 0 kabul et)
+                        const sTotal = parseInt(row.querySelector('.aijson-subj-total').value) || 0;
                         const sCorrect = parseInt(row.querySelector('.aijson-subj-correct').value) || 0;
                         const sIncorrect = parseInt(row.querySelector('.aijson-subj-incorrect').value) || 0;
                         const sBlank = parseInt(row.querySelector('.aijson-subj-blank').value) || 0;
 
-                        const subjData = data.dersler[subjName];
+                        const subjData = data.dersler ? data.dersler[subjName] : null;
 
                         const subjObj = {
                             name: subjName,
@@ -1454,14 +1476,11 @@
                             questions: []
                         };
 
-                        // İstatistik panellerinde "Konu"ların eksik listesine düşebilmesi için 
-                        // JSON'da bulunan hatalı konu verilerini sanal soru olarak ekliyoruz
                         if (subjData && subjData.konular) {
                             for (const [topicName, count] of Object.entries(subjData.konular)) {
                                 for(let i=0; i<count; i++) {
                                     subjObj.questions.push({
                                         id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
-                                        // Sistem hata vermesin diye boş bir placeholder resim tanımlıyoruz
                                         image: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZWVmMiZmIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyMCIgZmlsbD0iIzYzNjZmMCIgZmlsbC1vcGFjaXR5PSIwLjciIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPllhcGF5IFpla2EgQW5hbGl6IEtheWRpPC90ZXh0Pjwvc3ZnPg==", 
                                         isPdf: false,
                                         fileName: "AI_Toplu_Analiz",
@@ -1471,8 +1490,7 @@
                             }
                         }
                         
-                        // Sadece en az 1 soru girilmiş veya AI tarafından hata bulunmuş dersleri kaydet
-                        if (sCorrect > 0 || sIncorrect > 0 || sBlank > 0 || subjObj.questions.length > 0) {
+                        if (sTotal > 0 || sCorrect > 0 || sIncorrect > 0 || sBlank > 0 || subjObj.questions.length > 0) {
                             examObj.subjects.push(subjObj);
                         }
                     });
@@ -1490,7 +1508,7 @@
 
                     window.customModal.show("Harika!", `<b>${nameInput}</b> başarıyla ana sisteme kaydedildi! Artık genel karnede ve analizlerde bu verileri görebilirsiniz.`);
                     window.appNav.goTo('dashboard');
-                    window.aiJsonLogic.resetView(); // Formu sıfırla
+                    window.aiJsonLogic.resetView(); 
 
                 } catch (err) {
                     console.error(err);
