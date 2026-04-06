@@ -122,7 +122,6 @@
                 <span class="font-medium">Konu Analizi Grafikleri</span>
             </button>
 
-            <!-- YENİ EKLENEN AI JSON BUTONU -->
             <button onclick="window.appNav.goTo('aijson')" id="nav-aijson" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-slate-800/50 hover:text-white mt-1">
                 <i data-lucide="sparkles" class="w-5 h-5 text-rose-400"></i>
                 <span class="font-medium">AI JSON Veritabanı</span>
@@ -1376,6 +1375,54 @@
         // ==========================================
         // 6. UYGULAMA MANTIĞI FONKSİYONLARI VE YÖNLENDİRME
         // ==========================================
+        
+        // EKSİK OLAN AYARLAR MANTIĞI BURAYA EKLENDİ
+        window.settingsLogic = {
+            saveGemini: () => {
+                const key = ui.settings.apiKey.value.trim();
+                localStorage.setItem('lgs_gemini_api_key', key);
+                currentApiKey = key;
+                window.customModal.show("Başarılı", "Yapay Zeka (Gemini) API anahtarı başarıyla kaydedildi.");
+            },
+            saveFirebase: () => {
+                const val = ui.settings.firebaseConfig.value.trim();
+                if (!val) {
+                    window.customModal.show("Uyarı", "Lütfen bir konfigürasyon girin.");
+                    return;
+                }
+                
+                try {
+                    // Firebase'in ham Javascript (Tırnaksız) formatını geçerli bir JSON formatına dönüştürüyoruz
+                    let cleanedStr = val.replace(/const\s+firebaseConfig\s*=\s*/, '').replace(/;$/, '').trim();
+                    // Anahtarları çift tırnak içine al (Örn: apiKey: -> "apiKey":)
+                    cleanedStr = cleanedStr.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
+                    // Varsa tek tırnakları çift tırnağa çevir
+                    cleanedStr = cleanedStr.replace(/'/g, '"');
+                    
+                    const parsed = JSON.parse(cleanedStr);
+                    
+                    if(!parsed.apiKey || !parsed.projectId) {
+                         throw new Error("Geçersiz veya Eksik Firebase Konfigürasyonu");
+                    }
+                    
+                    localStorage.setItem('lgs_firebase_config', JSON.stringify(parsed));
+                    window.customModal.show("Başarılı", "Firebase bağlantısı başarıyla kaydedildi! Ayarların aktif olması için uygulama yeniden başlatılıyor...", true, () => {
+                         window.location.reload();
+                    });
+                    setTimeout(() => window.location.reload(), 2000);
+                } catch (err) {
+                    window.customModal.show("Format Hatası", "Girilen konfigürasyon formatı geçersiz. Lütfen Firebase panelinden aldığınız süslü parantezli <b>{ ... }</b> kod bloğunu eksiksiz yapıştırdığınızdan emin olun.<br><br>Hata Detayı: " + err.message);
+                }
+            },
+            clearFirebase: () => {
+                localStorage.removeItem('lgs_firebase_config');
+                window.customModal.show("Bağlantı Kesildi", "Bulut veritabanı bağlantısı sistemden silindi. Çevrimdışı moda geçiliyor...", false, () => {
+                     window.location.reload();
+                });
+                setTimeout(() => window.location.reload(), 2000);
+            }
+        };
+
         window.appNav = {
             goTo: (viewName) => {
                 Object.values(ui.views).forEach(el => el.classList.add('hidden-safe'));
