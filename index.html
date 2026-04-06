@@ -111,22 +111,18 @@
                 <i data-lucide="folder-plus" class="w-5 h-5"></i>
                 <span class="font-medium">Yeni Deneme Ekle</span>
             </button>
-            
             <button onclick="window.appNav.goTo('upload')" id="nav-upload" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-slate-800/50 hover:text-white mt-1 border border-indigo-500/30 bg-indigo-900/20 text-indigo-300">
                 <i data-lucide="file-up" class="w-5 h-5"></i>
                 <span class="font-medium">Toplu Soru Yükle (PDF)</span>
             </button>
-            
             <button onclick="window.appNav.goTo('analysis')" id="nav-analysis" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-slate-800/50 hover:text-white mt-1 border border-emerald-500/30 bg-emerald-900/20 text-emerald-300">
                 <i data-lucide="pie-chart" class="w-5 h-5"></i>
                 <span class="font-medium">Konu Analizi Grafikleri</span>
             </button>
-
             <button onclick="window.appNav.goTo('aijson')" id="nav-aijson" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-slate-800/50 hover:text-white mt-1">
                 <i data-lucide="sparkles" class="w-5 h-5 text-rose-400"></i>
                 <span class="font-medium">AI JSON Veritabanı</span>
             </button>
-
             <button onclick="window.appNav.goTo('pool')" id="nav-pool" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-slate-800/50 hover:text-white mt-1">
                 <i data-lucide="printer" class="w-5 h-5"></i>
                 <span class="font-medium">Soru Havuzu & Yazdır</span>
@@ -357,7 +353,7 @@
                 <div id="analysis-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
             </div>
 
-            <!-- GÖRÜNÜM: YENİ EKLENEN AI JSON İSTATİSTİKLERİ -->
+            <!-- GÖRÜNÜM: YENİ EKLENEN AI JSON İSTATİSTİKLERİ VE KAYIT KÖPRÜSÜ -->
             <div id="view-aijson" class="max-w-5xl mx-auto space-y-6 hidden-safe">
                 <div class="mb-6">
                     <h2 class="text-3xl font-extrabold text-indigo-900 mb-2 flex items-center gap-3">
@@ -424,6 +420,33 @@
                             </h3>
                         </div>
                         <div id="aijson-ders-listesi" class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8"></div>
+                    </div>
+
+                    <!-- YENİ EKLENEN: SİSTEME DENEME OLARAK KAYDETME ALANI -->
+                    <div id="aijson-save-section" class="bg-indigo-50 rounded-3xl p-6 border border-indigo-100 shadow-sm mt-8 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-500 opacity-5 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+                        <h3 class="text-xl font-bold text-indigo-900 mb-2 flex items-center gap-2">
+                            <i data-lucide="database" class="w-6 h-6"></i> Bu Analizi Arşive (Deneme Olarak) Kaydet
+                        </h3>
+                        <p class="text-sm text-indigo-700 mb-6 relative z-10">Yüklediğiniz bu analiz raporunu, sistemdeki diğer denemeler gibi "Kayıtlı Deneme" olarak ana veritabanına ekleyebilirsiniz. Hatalı soru sayıları ve konular doğrudan grafiklerinize yansıyacaktır.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 relative z-10">
+                            <div>
+                                <label class="block text-sm font-bold text-indigo-900 mb-1">Deneme / Test Adı</label>
+                                <input type="text" id="aijson-exam-name" placeholder="Örn: İsem Yayınları Nisan Denemesi" class="w-full px-4 py-3 rounded-xl border border-indigo-200 focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-indigo-900 mb-1">Uygulanma Tarihi</label>
+                                <input type="date" id="aijson-exam-date" class="w-full px-4 py-3 rounded-xl border border-indigo-200 focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm text-sm">
+                            </div>
+                        </div>
+                        <div class="flex justify-end relative z-10 mt-6">
+                            <button id="aijson-save-btn" onclick="window.aiJsonLogic.saveToDatabase()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-colors shadow-md">
+                                <i data-lucide="save" class="w-5 h-5" id="aijson-save-icon-normal"></i>
+                                <i data-lucide="loader-2" class="w-5 h-5 animate-spin hidden-safe" id="aijson-save-icon-loading"></i>
+                                <span id="aijson-save-text">Ana Veritabanına Ekle</span>
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="text-center text-xs text-slate-400 mt-8 font-mono">
@@ -650,7 +673,13 @@
                 topDers: document.getElementById('aijson-top-ders'),
                 topKonu: document.getElementById('aijson-top-konu'),
                 tarih: document.getElementById('aijson-guncelleme-tarihi'),
-                liste: document.getElementById('aijson-ders-listesi')
+                liste: document.getElementById('aijson-ders-listesi'),
+                examName: document.getElementById('aijson-exam-name'),
+                examDate: document.getElementById('aijson-exam-date'),
+                saveBtn: document.getElementById('aijson-save-btn'),
+                saveIconNormal: document.getElementById('aijson-save-icon-normal'),
+                saveIconLoading: document.getElementById('aijson-save-icon-loading'),
+                saveText: document.getElementById('aijson-save-text')
             }
         };
 
@@ -1279,7 +1308,11 @@
             renkler: ['bg-indigo-500', 'bg-emerald-500', 'bg-blue-500', 'bg-rose-500', 'bg-amber-500', 'bg-purple-500', 'bg-cyan-500'],
             renkIndex: 0,
             hedefSoru: 20,
+            currentData: null, // Veritabanına kaydetmek için JSON'u tutuyoruz
+            
             arayuzuGuncelle: (data) => {
+                window.aiJsonLogic.currentData = data; // Kayıt için veriyi hafızaya al
+                
                 ui.aijson.loading.classList.add('hidden-safe');
                 ui.aijson.error.classList.add('hidden-safe');
                 ui.aijson.content.classList.remove('hidden-safe');
@@ -1290,6 +1323,10 @@
                 
                 const tarih = new Date(data.meta?.olusturulmaTarihi);
                 ui.aijson.tarih.textContent = !isNaN(tarih) ? tarih.toLocaleDateString('tr-TR') + ' ' + tarih.toLocaleTimeString('tr-TR') : 'Bilinmiyor';
+
+                // Varsayılan olarak bugünün tarihini inputa ekle
+                if(ui.aijson.examDate) ui.aijson.examDate.value = new Date().toISOString().split('T')[0];
+                if(ui.aijson.examName) ui.aijson.examName.value = "";
 
                 ui.aijson.liste.innerHTML = ''; 
 
@@ -1369,6 +1406,87 @@
                     }
                 };
                 reader.readAsText(file);
+            },
+            
+            // YENİ EKLENEN: AI JSON Verisini Ana Veritabanına (Deneme olarak) Kaydetme Fonksiyonu
+            saveToDatabase: async () => {
+                const data = window.aiJsonLogic.currentData;
+                if (!data || !data.dersler) {
+                    window.customModal.show("Hata", "Kaydedilecek geçerli bir analiz bulunamadı.");
+                    return;
+                }
+
+                const nameInput = ui.aijson.examName.value.trim();
+                const dateInput = ui.aijson.examDate.value || new Date().toISOString().split('T')[0];
+
+                if (!nameInput) {
+                    window.customModal.show("Uyarı", "Lütfen bu analizi sisteme kaydetmek için bir <b>Deneme / Test Adı</b> belirleyin.");
+                    return;
+                }
+
+                if (!window.currentUser && !window.isLocalMode) return;
+
+                ui.aijson.saveBtn.disabled = true; ui.aijson.saveBtn.classList.add('opacity-70');
+                ui.aijson.saveIconNormal.classList.add('hidden-safe'); ui.aijson.saveIconLoading.classList.remove('hidden-safe');
+                ui.aijson.saveText.innerText = "Sisteme Aktarılıyor...";
+
+                try {
+                    const examObj = {
+                        name: nameInput,
+                        date: dateInput,
+                        location: "Yapay Zeka Analizi",
+                        subjects: []
+                    };
+
+                    for (const [subjName, subjData] of Object.entries(data.dersler)) {
+                        const subjObj = {
+                            name: subjName,
+                            correct: 0,
+                            incorrect: subjData.total || 0, // Tüm PDF içeriğini çözülememiş/yanlış kabul ediyoruz
+                            blank: 0,
+                            questions: []
+                        };
+
+                        // İstatistik panellerinde "Konu"ların görünebilmesi için sanal (dummy) sorular üretiyoruz
+                        if (subjData.konular) {
+                            for (const [topicName, count] of Object.entries(subjData.konular)) {
+                                for(let i=0; i<count; i++) {
+                                    subjObj.questions.push({
+                                        id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
+                                        // Sistem hata vermesin diye boş bir placeholder resim tanımlıyoruz
+                                        image: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZWVmMiZmIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyMCIgZmlsbD0iIzYzNjZmMCIgZmlsbC1vcGFjaXR5PSIwLjciIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPllhcGF5IFpla2EgQW5hbGl6IEtheWRpPC90ZXh0Pjwvc3ZnPg==", 
+                                        isPdf: false,
+                                        fileName: "AI_Toplu_Analiz",
+                                        topic: topicName
+                                    });
+                                }
+                            }
+                        }
+                        examObj.subjects.push(subjObj);
+                    }
+
+                    const finalPayload = getCleanExamPayload(examObj);
+
+                    if (window.isLocalMode) {
+                        finalPayload.id = Date.now().toString();
+                        window.localExamsMemory.push(finalPayload);
+                        if(window.localSnapshotTrigger) window.localSnapshotTrigger(window.localExamsMemory);
+                    } else {
+                        finalPayload.createdAt = serverTimestamp();
+                        await addDoc(collection(db, 'artifacts', appId, 'users', window.currentUser.uid, 'exams'), finalPayload);
+                    }
+
+                    window.customModal.show("Harika!", `<b>${nameInput}</b> isimli analiz başarıyla ana sisteme kaydedildi! Tüm grafikler ve soru istatistikleri güncellendi.`);
+                    window.appNav.goTo('dashboard');
+
+                } catch (err) {
+                    console.error(err);
+                    window.customModal.show("Hata", "Kayıt sırasında bir sorun oluştu: " + err.message);
+                } finally {
+                    ui.aijson.saveBtn.disabled = false; ui.aijson.saveBtn.classList.remove('opacity-70');
+                    ui.aijson.saveIconNormal.classList.remove('hidden-safe'); ui.aijson.saveIconLoading.classList.add('hidden-safe');
+                    ui.aijson.saveText.innerText = "Ana Veritabanına Ekle";
+                }
             }
         };
 
