@@ -111,14 +111,23 @@
                 <i data-lucide="folder-plus" class="w-5 h-5"></i>
                 <span class="font-medium">Yeni Deneme Ekle</span>
             </button>
+            
             <button onclick="window.appNav.goTo('upload')" id="nav-upload" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-slate-800/50 hover:text-white mt-1 border border-indigo-500/30 bg-indigo-900/20 text-indigo-300">
                 <i data-lucide="file-up" class="w-5 h-5"></i>
                 <span class="font-medium">Toplu Soru Yükle (PDF)</span>
             </button>
+            
             <button onclick="window.appNav.goTo('analysis')" id="nav-analysis" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-slate-800/50 hover:text-white mt-1 border border-emerald-500/30 bg-emerald-900/20 text-emerald-300">
                 <i data-lucide="pie-chart" class="w-5 h-5"></i>
                 <span class="font-medium">Konu Analizi Grafikleri</span>
             </button>
+
+            <!-- YENİ EKLENEN AI JSON BUTONU -->
+            <button onclick="window.appNav.goTo('aijson')" id="nav-aijson" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-slate-800/50 hover:text-white mt-1">
+                <i data-lucide="sparkles" class="w-5 h-5 text-rose-400"></i>
+                <span class="font-medium">AI JSON Veritabanı</span>
+            </button>
+
             <button onclick="window.appNav.goTo('pool')" id="nav-pool" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-slate-800/50 hover:text-white mt-1">
                 <i data-lucide="printer" class="w-5 h-5"></i>
                 <span class="font-medium">Soru Havuzu & Yazdır</span>
@@ -323,7 +332,6 @@
                         <h2 class="text-2xl font-bold text-slate-800">Konu Analizi ve Dağılımı</h2>
                         <p class="text-sm text-slate-500 mt-1">Veritabanına kaydedilen tüm hatalı soruların ders ve konu bazlı eksiklik grafikleri.</p>
                     </div>
-                    <!-- YENİ FİLTRELEME MENÜSÜ -->
                     <div class="w-full sm:w-64 shrink-0">
                         <select id="analysis-filter" onchange="window.renderAnalysisView()" class="bg-white border border-slate-300 text-slate-700 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5 shadow-sm font-semibold outline-none cursor-pointer">
                             <option value="all">Tüm Kayıtlar (Karma)</option>
@@ -348,6 +356,81 @@
                     </div>
                 </div>
                 <div id="analysis-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+            </div>
+
+            <!-- GÖRÜNÜM: YENİ EKLENEN AI JSON İSTATİSTİKLERİ -->
+            <div id="view-aijson" class="max-w-5xl mx-auto space-y-6 hidden-safe">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-extrabold text-indigo-900 mb-2 flex items-center gap-3">
+                        <i data-lucide="rocket" class="w-8 h-8 text-rose-500"></i>
+                        Yapay Zeka (JSON) Analizi
+                    </h2>
+                    <p class="text-slate-600">LGS Yapay Zeka Veri Köprüsü'nden alınan <code>lgs_veritabani.json</code> dosyasının bağımsız görselleştirme paneli.</p>
+                </div>
+
+                <!-- Yükleniyor Mesajı -->
+                <div id="aijson-loading-mesaji" class="flex flex-col items-center justify-center py-16 text-indigo-600 bg-white rounded-2xl shadow-sm border border-slate-200">
+                    <i data-lucide="loader-2" class="w-10 h-10 animate-spin mb-4"></i>
+                    <p class="font-medium animate-pulse">JSON veritabanı kontrol ediliyor...</p>
+                </div>
+
+                <!-- Veri Bulunamadı / Hata Mesajı -->
+                <div id="aijson-hata-mesaji" class="hidden-safe bg-red-50 border border-red-200 text-red-600 p-8 rounded-2xl text-center shadow-sm">
+                    <i data-lucide="alert-triangle" class="w-14 h-14 mx-auto mb-4 opacity-80"></i>
+                    <h3 class="text-xl font-bold mb-2">Otomatik Veri Çekilemedi</h3>
+                    <p class="text-sm max-w-lg mx-auto text-slate-700">Eğer bu dosyayı bilgisayarınızda veya Canvas önizlemesinde açıyorsanız güvenlik gereği veri otomatik okunamamaktadır. Lütfen <strong>GitHub'a</strong> yüklediğinizde tekrar deneyin.</p>
+                    
+                    <div class="mt-8 pt-6 border-t border-red-200 flex flex-col items-center">
+                        <p class="text-sm text-slate-800 font-bold mb-4">Hemen test etmek için <code>lgs_veritabani.json</code> dosyasını seçin:</p>
+                        <input type="file" id="local-json-upload" accept=".json" onchange="window.aiJsonLogic.handleFileUpload(event)" class="text-sm text-slate-600 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer shadow-sm transition-colors w-full max-w-xs" />
+                    </div>
+                </div>
+
+                <!-- Analiz İçeriği (Veri Gelince Gösterilecek) -->
+                <div id="aijson-analiz-icerigi" class="hidden-safe space-y-8">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex items-center gap-5 transition-transform hover:-translate-y-1">
+                            <div class="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0">
+                               <i data-lucide="target" class="w-7 h-7"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Toplam Çözülen</p>
+                                <p class="text-3xl font-black text-slate-800"><span id="aijson-top-soru">0</span> <span class="text-lg font-medium text-slate-400">Soru</span></p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex items-center gap-5 transition-transform hover:-translate-y-1">
+                            <div class="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0">
+                               <i data-lucide="book-open" class="w-7 h-7"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Çalışılan Ders</p>
+                                <p class="text-3xl font-black text-slate-800"><span id="aijson-top-ders">0</span> <span class="text-lg font-medium text-slate-400">Adet</span></p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex items-center gap-5 transition-transform hover:-translate-y-1">
+                            <div class="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center shrink-0">
+                               <i data-lucide="layers" class="w-7 h-7"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Taranan Konu</p>
+                                <p class="text-3xl font-black text-slate-800"><span id="aijson-top-konu">0</span> <span class="text-lg font-medium text-slate-400">Başlık</span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden">
+                        <div class="bg-slate-50/80 border-b border-slate-200 p-6">
+                            <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                <i data-lucide="bar-chart-2" class="w-6 h-6 text-rose-500"></i> Ders Bazlı Detaylı Dağılım
+                            </h3>
+                        </div>
+                        <div id="aijson-ders-listesi" class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8"></div>
+                    </div>
+                    
+                    <div class="text-center text-xs text-slate-400 mt-8 font-mono">
+                        Yapay Zeka Analiz Tarihi: <span id="aijson-guncelleme-tarihi">-</span>
+                    </div>
+                </div>
             </div>
 
             <!-- GÖRÜNÜM: SORU HAVUZU (POOL) -->
@@ -529,13 +612,13 @@
                 addTest: document.getElementById('view-add-test'), upload: document.getElementById('view-upload'), 
                 detail: document.getElementById('view-detail'), settings: document.getElementById('view-settings'), 
                 pool: document.getElementById('view-pool'), print: document.getElementById('view-print'), 
-                analysis: document.getElementById('view-analysis')
+                analysis: document.getElementById('view-analysis'), aijson: document.getElementById('view-aijson')
             },
             navBtn: {
                 dashboard: document.getElementById('nav-dashboard'), add: document.getElementById('nav-add'),
                 addTest: document.getElementById('nav-add-test'), upload: document.getElementById('nav-upload'), 
                 pool: document.getElementById('nav-pool'), settings: document.getElementById('nav-settings'), 
-                analysis: document.getElementById('nav-analysis')
+                analysis: document.getElementById('nav-analysis'), aijson: document.getElementById('nav-aijson')
             },
             dashboard: { stats: document.getElementById('dashboard-stats'), grid: document.getElementById('dashboard-grid') },
             add: {
@@ -559,7 +642,17 @@
             settings: { apiKey: document.getElementById('setting-api-key'), firebaseConfig: document.getElementById('setting-firebase-config') },
             pool: { grid: document.getElementById('pool-grid'), empty: document.getElementById('pool-empty-state'), count: document.getElementById('pool-selected-count'), btn: document.getElementById('pool-create-test-btn') },
             print: { container: document.getElementById('print-questions-container') },
-            analysis: { container: document.getElementById('analysis-container'), empty: document.getElementById('analysis-empty-state'), infoAlert: document.getElementById('analysis-info-alert') }
+            analysis: { container: document.getElementById('analysis-container'), empty: document.getElementById('analysis-empty-state'), infoAlert: document.getElementById('analysis-info-alert') },
+            aijson: {
+                loading: document.getElementById('aijson-loading-mesaji'),
+                error: document.getElementById('aijson-hata-mesaji'),
+                content: document.getElementById('aijson-analiz-icerigi'),
+                topSoru: document.getElementById('aijson-top-soru'),
+                topDers: document.getElementById('aijson-top-ders'),
+                topKonu: document.getElementById('aijson-top-konu'),
+                tarih: document.getElementById('aijson-guncelleme-tarihi'),
+                liste: document.getElementById('aijson-ders-listesi')
+            }
         };
 
         if (ui.settings.apiKey) ui.settings.apiKey.value = currentApiKey;
@@ -1181,6 +1274,106 @@
         };
 
         // ==========================================
+        // 5. YENİ EKLENEN YZ JSON İSTATİSTİK MANTIĞI
+        // ==========================================
+        window.aiJsonLogic = {
+            renkler: ['bg-indigo-500', 'bg-emerald-500', 'bg-blue-500', 'bg-rose-500', 'bg-amber-500', 'bg-purple-500', 'bg-cyan-500'],
+            renkIndex: 0,
+            hedefSoru: 20,
+            arayuzuGuncelle: (data) => {
+                ui.aijson.loading.classList.add('hidden-safe');
+                ui.aijson.error.classList.add('hidden-safe');
+                ui.aijson.content.classList.remove('hidden-safe');
+                
+                ui.aijson.topSoru.textContent = data.meta?.toplamSoru || 0;
+                ui.aijson.topDers.textContent = data.meta?.toplamDers || 0;
+                ui.aijson.topKonu.textContent = data.meta?.toplamKonu || 0;
+                
+                const tarih = new Date(data.meta?.olusturulmaTarihi);
+                ui.aijson.tarih.textContent = !isNaN(tarih) ? tarih.toLocaleDateString('tr-TR') + ' ' + tarih.toLocaleTimeString('tr-TR') : 'Bilinmiyor';
+
+                ui.aijson.liste.innerHTML = ''; 
+
+                const derslerListesi = Object.values(data.dersler || {});
+                const maxDersSoru = derslerListesi.length > 0 ? Math.max(...derslerListesi.map(d => d.total || 0)) : 1;
+
+                window.aiJsonLogic.renkIndex = 0;
+
+                for (const [dersAdi, dersVerisi] of Object.entries(data.dersler || {})) {
+                    const aktifRenk = window.aiJsonLogic.renkler[window.aiJsonLogic.renkIndex % window.aiJsonLogic.renkler.length];
+                    window.aiJsonLogic.renkIndex++;
+                    
+                    const dersYuzde = Math.min(((dersVerisi.total || 0) / maxDersSoru) * 100, 100);
+
+                    let html = `
+                    <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100 hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-end mb-3">
+                        <h4 class="font-bold text-lg text-slate-800">${dersAdi}</h4>
+                        <span class="bg-white px-3 py-1 rounded-full text-sm font-bold text-slate-600 border border-slate-200 shadow-sm">${dersVerisi.total || 0} Soru</span>
+                        </div>
+                        
+                        <div class="w-full bg-slate-200 rounded-full h-1.5 mb-6 overflow-hidden">
+                        <div class="${aktifRenk} h-1.5 rounded-full" style="width: ${dersYuzde}%"></div>
+                        </div>
+                        <div class="space-y-4">
+                    `;
+                    
+                    const siraliKonular = Object.entries(dersVerisi.konular || {}).sort((a, b) => b[1] - a[1]);
+
+                    for (const [konuAdi, soruSayisi] of siraliKonular) {
+                        const konuYuzde = Math.min((soruSayisi / window.aiJsonLogic.hedefSoru) * 100, 100);
+                        html += `
+                        <div class="group">
+                            <div class="flex justify-between items-center text-sm mb-1.5">
+                                <span class="font-medium text-slate-600 truncate pr-4" title="${konuAdi}">${konuAdi}</span>
+                                <span class="font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-100">${soruSayisi}</span>
+                            </div>
+                            <div class="w-full bg-slate-200/70 rounded-full h-2 overflow-hidden">
+                                <div class="${aktifRenk} opacity-80 h-2 rounded-full transition-all duration-1000 ease-out group-hover:opacity-100" style="width: ${konuYuzde}%"></div>
+                            </div>
+                        </div>
+                        `;
+                    }
+                    html += `</div></div>`;
+                    ui.aijson.liste.innerHTML += html;
+                }
+                setTimeout(() => lucide.createIcons(), 10);
+            },
+            loadData: async () => {
+                try {
+                    const isLocalEnv = window.location.href.startsWith('blob:') || window.location.href.startsWith('file:') || window.location.href.startsWith('data:') || document.baseURI.startsWith('blob:');
+                    if (isLocalEnv) {
+                        ui.aijson.loading.classList.add('hidden-safe');
+                        ui.aijson.error.classList.remove('hidden-safe');
+                        return;
+                    }
+                    const response = await fetch('lgs_veritabani.json?v=' + new Date().getTime());
+                    if (!response.ok) throw new Error("Veri dosyası bulunamadı");
+                    
+                    const data = await response.json();
+                    window.aiJsonLogic.arayuzuGuncelle(data);
+                } catch (error) {
+                    ui.aijson.loading.classList.add('hidden-safe');
+                    ui.aijson.error.classList.remove('hidden-safe');
+                }
+            },
+            handleFileUpload: (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const parsedData = JSON.parse(e.target.result);
+                        window.aiJsonLogic.arayuzuGuncelle(parsedData);
+                    } catch (err) {
+                        alert("Geçersiz veya bozuk JSON dosyası! Lütfen yapay zeka aracından indirdiğiniz dosyayı seçin.");
+                    }
+                };
+                reader.readAsText(file);
+            }
+        };
+
+        // ==========================================
         // 6. UYGULAMA MANTIĞI FONKSİYONLARI VE YÖNLENDİRME
         // ==========================================
         window.appNav = {
@@ -1188,7 +1381,7 @@
                 Object.values(ui.views).forEach(el => el.classList.add('hidden-safe'));
                 ui.topHeader.classList.remove('hidden-safe');
                 
-                ['dashboard', 'add', 'addTest', 'upload', 'pool', 'settings', 'analysis'].forEach(key => {
+                ['dashboard', 'add', 'addTest', 'upload', 'pool', 'settings', 'analysis', 'aijson'].forEach(key => {
                     if(ui.navBtn[key]) ui.navBtn[key].className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-slate-800/50 hover:text-white mt-1";
                 });
                 
@@ -1203,6 +1396,11 @@
                 if (ui.navBtn.analysis) {
                     ui.navBtn.analysis.classList.add('border', 'border-emerald-500/30', 'bg-emerald-900/20', 'text-emerald-300');
                     if(viewName !== 'analysis') ui.navBtn.analysis.classList.remove('bg-emerald-600/10', 'text-emerald-400');
+                }
+
+                if (ui.navBtn.aijson) {
+                    ui.navBtn.aijson.classList.add('border', 'border-rose-500/30', 'bg-rose-900/20', 'text-rose-300');
+                    if(viewName !== 'aijson') ui.navBtn.aijson.classList.remove('bg-rose-600/10', 'text-rose-400');
                 }
 
                 if (viewName === 'dashboard') {
@@ -1243,6 +1441,12 @@
                     ui.topTitle.innerHTML = 'Konu Başarı Analizi';
                     ui.topActions.innerHTML = '';
                     if (window.renderAnalysisView) window.renderAnalysisView();
+                } else if (viewName === 'aijson') {
+                    ui.views.aijson.classList.remove('hidden-safe');
+                    if (ui.navBtn.aijson) ui.navBtn.aijson.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors bg-rose-600/20 text-rose-300 border border-rose-500/50 mt-1";
+                    ui.topTitle.innerHTML = 'Yapay Zeka Konu İstatistikleri';
+                    ui.topActions.innerHTML = '';
+                    if (window.aiJsonLogic) window.aiJsonLogic.loadData();
                 } else if (viewName === 'pool') {
                     if(window.extractQuestionsToPool) window.extractQuestionsToPool();
                     if(window.renderPoolGrid) window.renderPoolGrid();
