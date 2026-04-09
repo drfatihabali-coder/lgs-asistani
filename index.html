@@ -364,6 +364,12 @@
                         <div class="text-sm font-medium text-indigo-900">
                             Seçilen: <span id="pool-selected-count" class="text-lg font-bold">0</span> Soru
                         </div>
+                        
+                        <!-- YENİ: Toplu Silme Butonu -->
+                        <button onclick="window.poolLogic.deleteSelected()" id="pool-delete-selected-btn" disabled class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i> Seçilenleri Sil
+                        </button>
+
                         <button onclick="window.appNav.goTo('print')" id="pool-create-test-btn" disabled class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             <i data-lucide="printer" class="w-4 h-4"></i> Test Oluştur
                         </button>
@@ -451,7 +457,6 @@
                     </div>
                 </div>
 
-                <!-- YENİ: VERİ KURTARMA (ESKİ HESAP ID'Sİ) -->
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-6">
                     <div class="bg-rose-50 border-b border-rose-100 p-4 flex items-center gap-3">
                         <div class="bg-rose-600 p-2 rounded-lg text-white"><i data-lucide="life-buoy" class="w-5 h-5"></i></div>
@@ -471,6 +476,23 @@
                             <input type="text" id="setting-custom-uid" placeholder="Eski uzun ID kodunuzu buraya yapıştırın..." class="flex-1 px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-rose-500 outline-none font-mono text-sm">
                             <button onclick="window.settingsLogic.saveCustomUid()" class="bg-rose-600 hover:bg-rose-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors whitespace-nowrap">Hesabı Kurtar</button>
                         </div>
+                    </div>
+                </div>
+
+                <!-- YENİ: TÜM VERİLERİ SIFIRLAMA (TOPLU SİLME) -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-6">
+                    <div class="bg-red-50 border-b border-red-100 p-4 flex items-center gap-3">
+                        <div class="bg-red-600 p-2 rounded-lg text-white"><i data-lucide="alert-triangle" class="w-5 h-5"></i></div>
+                        <div>
+                            <h3 class="text-lg font-bold text-red-900">Veri Yönetimi (Tehlikeli Bölge)</h3>
+                            <p class="text-xs text-red-700">Sisteme yüklediğiniz tüm deneme, test ve soruları kalıcı olarak siler.</p>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <p class="text-sm text-slate-600 mb-4">Bu işlem geri alınamaz. Kaydedilmiş tüm sorular ve analizler silinecektir.</p>
+                        <button onclick="window.settingsLogic.deleteAllData()" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors shadow-md">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i> Tüm Verileri Kalıcı Olarak Sil
+                        </button>
                     </div>
                 </div>
 
@@ -841,9 +863,728 @@
             };
         };
 
+        window.settingsLogic = {
+            saveGemini: () => {
+                if (KALICI_GEMINI_API_KEY) return window.customModal.show("Bilgi", "API Anahtarınız kodun içine kalıcı olarak yazılmış durumda.");
+                const key = ui.settings.apiKey.value.trim(); 
+                localStorage.setItem('lgs_gemini_api_key', key); 
+                currentApiKey = key;
+                window.customModal.show("Başarılı", "Gemini API anahtarı başarıyla kaydedildi.");
+            },
+            saveFirebase: () => {
+                if (KALICI_FIREBASE_CONFIG) return window.customModal.show("Bilgi", "Firebase ayarlarınız kodun içine kalıcı olarak yazılmış durumda.");
+                let configStr = ui.settings.firebaseConfig.value.trim();
+                if (configStr === '') { window.settingsLogic.clearFirebase(); return; }
+                try {
+                    const sIdx = configStr.indexOf('{');
+                    const eIdx = configStr.lastIndexOf('}');
+                    if (sIdx === -1 || eIdx === -1) throw new Error("JSON objesi bulunamadı.");
+                    let objectString = configStr.substring(sIdx, eIdx + 1);
+                    let parsedConfig = (new Function("return " + objectString))(); 
+                    if (typeof parsedConfig !== 'object' || !parsedConfig.apiKey) throw new Error("Eksik Config");
+                    if (parsedConfig.apiKey === "..." || parsedConfig.projectId === "...") return window.customModal.show("Uyarı", "Lütfen gerçek kodunuzu yapıştırın.");
+                    localStorage.setItem('lgs_firebase_config', JSON.stringify(parsedConfig)); 
+                    window.customModal.show("Başarılı", "Bağlantı ayarları başarıyla kaydedildi! Sayfa yenileniyor...", false, () => location.reload());
+                } catch (e) { window.customModal.show("Hata", "Geçersiz Format!"); }
+            },
+            clearFirebase: () => {
+                localStorage.removeItem('lgs_firebase_config');
+                window.customModal.show("Bağlantı Kesildi", "Uygulama yerel moda dönüyor...", false, () => location.reload());
+            },
+            saveCustomUid: () => {
+                const uid = document.getElementById('setting-custom-uid').value.trim();
+                if(!uid) {
+                    localStorage.removeItem('lgs_custom_uid');
+                    window.customModal.show("Bilgi", "Hesap kurtarma iptal edildi, orijinal GitHub ID'nize dönülüyor. Sayfa yenileniyor...", false, () => location.reload());
+                    return;
+                }
+                localStorage.setItem('lgs_custom_uid', uid);
+                window.customModal.show("Başarılı", "Eski hesabınıza bağlanılıyor! Verilerin okunabilmesi için Firebase'den Güvenlik Kurallarını güncellediğinizden emin olun.<br><br>Sayfa yenileniyor...", false, () => location.reload());
+            },
+            deleteAllData: () => {
+                window.customModal.show("Tüm Verileri Kalıcı Olarak Sil", "DİKKAT! Bu işlem geri alınamaz. Arşivdeki tüm denemeler, testler, analizler ve Soru Havuzundaki tüm sorular kalıcı olarak silinecektir. Devam etmek istiyor musunuz?", true, async () => {
+                    const btn = document.querySelector('button[onclick="window.settingsLogic.deleteAllData()"]');
+                    const originalText = btn ? btn.innerHTML : '';
+                    if(btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Siliniyor...`;
+                    lucide.createIcons();
+
+                    try {
+                        if (window.isLocalMode) {
+                            window.localExamsMemory = [];
+                            if (window.localSnapshotTrigger) window.localSnapshotTrigger(window.localExamsMemory);
+                        } else {
+                            if (!window.currentUser) throw new Error("Oturum açık değil.");
+                            const deletePromises = (window.examsData || []).map(exam => 
+                                deleteDoc(doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'exams', exam.id))
+                            );
+                            await Promise.all(deletePromises);
+                        }
+                        window.customModal.show("Başarılı", "Tüm veriler sistemden tamamen temizlendi.");
+                        if (window.appNav && window.appNav.goTo) window.appNav.goTo('dashboard');
+                    } catch (err) {
+                        window.customModal.show("Hata", "Veriler silinirken bir hata oluştu: " + err.message);
+                    } finally {
+                        if(btn) btn.innerHTML = originalText;
+                        lucide.createIcons();
+                    }
+                });
+            }
+        };
+
+        window.extractQuestionsToPool = () => {
+            window.allQuestionsPool = [];
+            (window.examsData || []).forEach(exam => {
+                (exam.subjects || []).forEach(subj => {
+                    if (subj.questions && subj.questions.length > 0) {
+                        subj.questions.forEach((q, idx) => {
+                            window.allQuestionsPool.push({
+                                globalId: `${exam.id}_${subj.name}_${idx}`,
+                                examId: exam.id,
+                                subjectName: subj.name,
+                                questionIndex: idx,
+                                questionId: q.id,
+                                examName: exam.name,
+                                image: q.image || q.cleanImage || q.originalImage || '',
+                                isPdf: q.isPdf || false,
+                                fileName: q.fileName || 'Soru',
+                                topic: q.topic || "Belirtilmemiş"
+                            });
+                        });
+                    }
+                });
+            });
+        };
+
         // ==========================================
-        // 4. MANTIK FONKSİYONLARI (LOGIC)
+        // 4. ÇİZİM (RENDER) FONKSİYONLARI
         // ==========================================
+        window.renderDashboard = () => {
+            try {
+                const totalExams = (window.examsData || []).length;
+                let totalQ = 0, totalC = 0, totalI = 0, totalUploadedQuestions = 0;
+                
+                (window.examsData || []).forEach(exam => {
+                    (exam.subjects || []).forEach(subj => {
+                        totalQ += (subj.correct || 0) + (subj.incorrect || 0) + (subj.blank || 0);
+                        totalC += (subj.correct || 0);
+                        totalI += (subj.incorrect || 0);
+                        if (subj.questions) totalUploadedQuestions += subj.questions.length;
+                    });
+                });
+                const averageNet = totalExams > 0 ? ((totalC - (totalI/3)) / totalExams).toFixed(1) : 0;
+
+                ui.dashboard.stats.innerHTML = `
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600"><i data-lucide="file-question" class="w-6 h-6"></i></div>
+                        <div><p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Çözülen Kayıt</p><p class="text-2xl font-black text-slate-800">${totalExams}</p></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600"><i data-lucide="check-circle" class="w-6 h-6"></i></div>
+                        <div><p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Toplam Doğru</p><p class="text-2xl font-black text-slate-800">${totalC}</p></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 bg-rose-50 rounded-full flex items-center justify-center text-rose-600"><i data-lucide="x-circle" class="w-6 h-6"></i></div>
+                        <div><p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Toplam Yanlış</p><p class="text-2xl font-black text-slate-800">${totalI}</p></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center text-amber-600"><i data-lucide="maximize-2" class="w-6 h-6"></i></div>
+                        <div><p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Ortalama Net</p><p class="text-2xl font-black text-slate-800">${averageNet}</p></div>
+                    </div>
+                    <div class="bg-indigo-50 p-5 rounded-xl border border-indigo-200 shadow-sm flex items-center gap-4 ring-1 ring-indigo-100">
+                        <div class="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center text-white"><i data-lucide="layers" class="w-6 h-6"></i></div>
+                        <div><p class="text-[11px] font-bold text-indigo-600 uppercase tracking-wider">Havuzdaki Soru</p><p class="text-2xl font-black text-slate-800">${totalUploadedQuestions}</p></div>
+                    </div>
+                `;
+
+                if (window.examsData.length === 0) {
+                    ui.dashboard.grid.innerHTML = `<div class="col-span-full text-center py-20 bg-white rounded-xl border border-dashed border-slate-300"><i data-lucide="file-question" class="w-16 h-16 text-slate-300 mx-auto mb-4 block"></i><h3 class="text-lg font-medium text-slate-900 mb-2">Henüz kayıt yok</h3><p class="text-slate-500 max-w-sm mx-auto text-sm">Sisteme veri girmeye başlamak için soldaki menüden veri ekleyin.</p></div>`;
+                } else {
+                    ui.dashboard.grid.innerHTML = window.examsData.map(exam => {
+                        const c = (exam.subjects || []).reduce((s, x) => s + (x.correct || 0), 0);
+                        const i = (exam.subjects || []).reduce((s, x) => s + (x.incorrect || 0), 0);
+                        const b = (exam.subjects || []).reduce((s, x) => s + (x.blank || 0), 0);
+                        const q = c + i + b;
+                        const n = (c - (i / 3)).toFixed(2);
+                        
+                        return `
+                        <div onclick="window.selectExam('${exam.id}')" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer relative group flex flex-col">
+                            <button type="button" onclick="event.stopPropagation(); window.deleteExam('${exam.id}')" class="absolute top-3 right-3 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all z-20" title="Sil">
+                                <i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i>
+                            </button>
+                            <h3 class="text-base font-bold text-slate-800 mb-1 pr-8 truncate">${exam.name || 'İsimsiz Kayıt'}</h3>
+                            <div class="flex items-center gap-3 text-xs text-slate-500 mb-4">
+                                <span class="flex items-center gap-1"><i data-lucide="calendar" class="w-3.5 h-3.5"></i> ${exam.date ? new Date(exam.date).toLocaleDateString('tr-TR') : '-'}</span>
+                                ${exam.location ? `<span class="flex items-center gap-1"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i> ${exam.location}</span>` : ''}
+                            </div>
+                            <div class="mt-auto grid grid-cols-4 gap-1 text-center text-xs">
+                                <div class="bg-emerald-50 text-emerald-700 py-2 rounded-md"><span class="block font-bold text-sm mb-0.5">${c}</span> D</div>
+                                <div class="bg-rose-50 text-rose-700 py-2 rounded-md"><span class="block font-bold text-sm mb-0.5">${i}</span> Y</div>
+                                <div class="bg-slate-50 text-slate-600 py-2 rounded-md"><span class="block font-bold text-sm mb-0.5">${q}</span> S</div>
+                                <div class="bg-indigo-50 text-indigo-700 py-2 rounded-md border border-indigo-100/50"><span class="block font-bold text-sm mb-0.5">${n}</span> Net</div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
+                ui.sidebarRecent.innerHTML = window.examsData.slice(0, 5).map(ex => `<button type="button" onclick="window.selectExam('${ex.id}')" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"><span class="truncate pr-2 text-left">${ex.name || 'İsimsiz'}</span><i data-lucide="chevron-right" class="w-4 h-4 opacity-50 flex-shrink-0 pointer-events-none"></i></button>`).join('') || `<p class="px-3 text-xs text-slate-600 italic">Kayıt bulunamadı.</p>`;
+                setTimeout(() => lucide.createIcons(), 10);
+            } catch (err) { ui.dashboard.grid.innerHTML = `<div class="col-span-full p-4 bg-red-50 text-red-600 rounded-lg text-sm font-semibold border border-red-200">Hata: ${err.message}.</div>`; }
+        };
+
+        window.renderDetail = () => {
+            const ex = window.currentSelectedExam;
+            if (!ex) return;
+            
+            ui.detailContainer.innerHTML = `
+                <div class="border-b border-slate-100 pb-4 mb-6 flex justify-between items-start">
+                    <div>
+                        <h2 class="text-3xl font-bold text-slate-800 mb-2">${ex.name || 'İsimsiz Kayıt'}</h2>
+                        <div class="flex gap-4 text-slate-500 mb-3">
+                            <span class="flex gap-1.5"><i data-lucide="calendar" class="w-4 h-4"></i> ${ex.date ? new Date(ex.date).toLocaleDateString('tr-TR') : '-'}</span>
+                            ${ex.location ? `<span class="flex gap-1.5"><i data-lucide="map-pin" class="w-4 h-4"></i> ${ex.location}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+                <div class="space-y-8">
+                    ${(ex.subjects || []).filter(s => s.incorrect > 0 || s.correct > 0 || s.blank > 0 || (s.questions && s.questions.length > 0)).length === 0 ? `<p class="text-slate-500 italic">Bu belgede kaydedilmiş veri bulunamadı.</p>` : ''}
+                    ${(ex.subjects || []).filter(s => s.incorrect > 0 || s.correct > 0 || s.blank > 0 || (s.questions && s.questions.length > 0)).map(subj => `
+                        <div class="bg-slate-50 rounded-xl p-5 border border-slate-100">
+                            <div class="flex flex-col sm:flex-row sm:justify-between mb-4 pb-4 border-b border-slate-200 sm:items-center gap-3">
+                                <h3 class="text-xl font-bold text-indigo-900">${subj.name} <span class="ml-3 text-sm font-medium bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded">${((subj.correct||0)-((subj.incorrect||0)/3)).toFixed(2)} Net</span></h3>
+                                <div class="flex gap-3 text-sm">
+                                    <span class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full whitespace-nowrap">${subj.correct||0} D</span>
+                                    <span class="bg-rose-100 text-rose-800 px-3 py-1 rounded-full whitespace-nowrap">${subj.incorrect||0} Y</span>
+                                    <span class="bg-slate-200 text-slate-700 px-3 py-1 rounded-full whitespace-nowrap">${subj.blank||0} B</span>
+                                </div>
+                            </div>
+                            ${subj.questions && subj.questions.length > 0 ? `
+                                <div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        ${subj.questions.map(q => `
+                                            <div class="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm flex flex-col relative group">
+                                                <!-- YENİ: Tekil Soru Silme Butonu -->
+                                                <button type="button" onclick="event.stopPropagation(); window.deleteQuestion('${ex.id}', '${subj.name}', '${q.id}')" class="absolute top-2 left-2 bg-rose-500/90 hover:bg-rose-600 text-white p-1.5 rounded-lg z-30 shadow-sm transition-colors opacity-0 group-hover:opacity-100" title="Soruyu Sil">
+                                                    <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i>
+                                                </button>
+
+                                                ${q.isPdf ? `
+                                                    <div class="aspect-[4/3] bg-rose-50/50 p-2 flex flex-col items-center justify-center relative group/inner cursor-pointer transition-colors hover:bg-rose-100" onclick="window.openPdfModalFromExam('${ex.id}', '${subj.name}', '${q.id}')">
+                                                        <i data-lucide="file-text" class="w-10 h-10 text-rose-400 mb-2 transition-transform group-hover/inner:scale-110"></i>
+                                                        <span class="text-[10px] font-bold text-rose-700 truncate w-full text-center px-2 mb-2">${(q.fileName || 'PDF Dosyası').replace(/"/g, '&quot;')}</span>
+                                                        <button type="button" class="px-3 py-1.5 bg-rose-500 text-white rounded-lg text-[10px] font-bold shadow-sm hover:bg-rose-600 flex items-center gap-1 transition-colors">
+                                                            <i data-lucide="maximize" class="w-3 h-3 pointer-events-none"></i> Tam Ekran Gör
+                                                        </button>
+                                                    </div>
+                                                ` : `
+                                                    <div class="aspect-[4/3] bg-slate-100 p-2 flex items-center justify-center relative">
+                                                        <img src="${q.image || window.FALLBACK_IMG}" onerror="this.onerror=null; this.src=window.FALLBACK_IMG;" class="max-w-full max-h-full object-contain mix-blend-multiply" />
+                                                    </div>
+                                                `}
+                                                <div class="p-2 border-t border-slate-100 bg-indigo-50/50 text-xs font-semibold text-indigo-900 text-center truncate">
+                                                    Konu: ${(q.topic || 'Belirtilmemiş').replace(/"/g, '&quot;')}
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : `<p class="text-sm text-slate-500 italic">Soru dosyası eklenmemiş.</p>`}
+                        </div>
+                    `).join('')}
+                </div>`;
+            setTimeout(() => lucide.createIcons(), 10);
+        };
+
+        window.renderAnalysisView = () => {
+            let analysisData = {};
+            let hasData = false;
+
+            const filterEl = document.getElementById('analysis-filter');
+            const filterValue = filterEl ? filterEl.value : 'all';
+
+            let filteredExams = window.examsData;
+            if (filterValue === 'exam') {
+                filteredExams = (window.examsData || []).filter(e => e.location !== 'Tekil Test');
+            } else if (filterValue === 'test') {
+                filteredExams = (window.examsData || []).filter(e => e.location === 'Tekil Test');
+            }
+
+            filteredExams.forEach(exam => {
+                (exam.subjects || []).forEach(subj => {
+                    let totalErrorsInSubject = parseInt(subj.incorrect) || 0;
+
+                    if (totalErrorsInSubject > 0 || (subj.questions && subj.questions.length > 0)) {
+                        hasData = true;
+                        if (!analysisData[subj.name]) analysisData[subj.name] = {};
+                        
+                        let photoErrorCount = 0;
+                        if (subj.questions && subj.questions.length > 0) {
+                            subj.questions.forEach(q => {
+                                let t = (q.topic && q.topic.trim() !== "") ? q.topic : "Belirtilmemiş";
+                                analysisData[subj.name][t] = (analysisData[subj.name][t] || 0) + 1;
+                                photoErrorCount++;
+                            });
+                        }
+                        
+                        let remainingErrors = Math.max(0, totalErrorsInSubject - photoErrorCount);
+                        if (remainingErrors > 0) {
+                            analysisData[subj.name]["Belirtilmemiş"] = (analysisData[subj.name]["Belirtilmemiş"] || 0) + remainingErrors;
+                        }
+                    }
+                });
+            });
+
+            if (!hasData) {
+                ui.analysis.container.innerHTML = '';
+                ui.analysis.empty.classList.remove('hidden-safe');
+                ui.analysis.infoAlert.classList.add('hidden-safe');
+                return;
+            }
+
+            ui.analysis.empty.classList.add('hidden-safe');
+            ui.analysis.infoAlert.classList.remove('hidden-safe');
+            
+            let html = '';
+            for (const [subjectName, topicsObj] of Object.entries(analysisData)) {
+                const sortedTopics = Object.entries(topicsObj).sort((a, b) => b[1] - a[1]);
+                const totalMistakesInSubject = sortedTopics.reduce((sum, item) => sum + item[1], 0);
+
+                html += `
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+                        <div class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center"><i data-lucide="book-open" class="w-4 h-4"></i></div>
+                        <h3 class="font-bold text-slate-800 text-lg">${subjectName}</h3>
+                    </div>
+                    <div class="space-y-4">
+                        ${sortedTopics.map(([topicName, count]) => {
+                            const percentage = Math.round((count / totalMistakesInSubject) * 100);
+                            return `
+                            <div>
+                                <div class="flex justify-between text-xs font-medium mb-1">
+                                    <span class="text-slate-700 truncate pr-2">${topicName}</span>
+                                    <span class="text-rose-600 font-bold whitespace-nowrap">${count} Hata</span>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                                    <div class="bg-rose-500 h-2 rounded-full" style="width: ${percentage}%"></div>
+                                </div>
+                            </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+                `;
+            }
+            ui.analysis.container.innerHTML = html;
+            setTimeout(() => lucide.createIcons(), 10);
+        };
+
+        window.renderPoolGrid = () => {
+            try {
+                const filteredPool = window.currentPoolFilter === 'Tümü' ? window.allQuestionsPool : window.allQuestionsPool.filter(q => q.subjectName === window.currentPoolFilter);
+                if (filteredPool.length === 0) {
+                    ui.pool.grid.innerHTML = ''; 
+                    ui.pool.empty.classList.remove('hidden-safe');
+                } else {
+                    ui.pool.empty.classList.add('hidden-safe');
+                    ui.pool.grid.innerHTML = filteredPool.map(q => {
+                        const isSelected = window.selectedQuestionIds.has(q.globalId);
+                        const borderClass = isSelected ? 'ring-4 ring-indigo-500 border-transparent' : 'border-slate-200';
+                        const checkClass = isSelected ? '' : 'hidden';
+                        
+                        const safeTopic = (q.topic === 'Belirtilmemiş' ? '' : q.topic).replace(/"/g, '&quot;');
+                        const safeFileName = (q.fileName || 'Soru').replace(/"/g, '&quot;');
+                        const safeExamName = (q.examName || '').replace(/"/g, '&quot;');
+                        
+                        return `
+                        <div id="pool-card-${q.globalId}" class="relative group cursor-pointer bg-white rounded-xl overflow-hidden border ${borderClass} transition-all hover:shadow-md flex flex-col" onclick="window.poolLogic.toggleQuestion('${q.globalId}')">
+                            <!-- YENİ: Havuzda Tekil Soru Silme Butonu -->
+                            <button type="button" onclick="event.stopPropagation(); window.deleteQuestion('${q.examId}', '${q.subjectName}', '${q.questionId}')" class="absolute top-3 left-3 bg-rose-500/90 hover:bg-rose-600 text-white p-1.5 rounded-lg z-30 shadow-sm transition-colors opacity-0 group-hover:opacity-100" title="Soruyu Sil">
+                                <i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i>
+                            </button>
+                            
+                            <div class="check-indicator absolute top-3 right-3 bg-indigo-500 text-white p-1 rounded-full z-20 shadow-sm ${checkClass}"><i data-lucide="check" class="w-4 h-4 text-white font-bold pointer-events-none"></i></div>
+                            
+                            <div class="image-container aspect-[4/3] bg-slate-100 p-2 flex-1 flex items-center justify-center relative group/inner">
+                                ${q.isPdf ? `
+                                    <div class="flex flex-col items-center justify-center w-full h-full bg-rose-50/50 p-2 transition-colors hover:bg-rose-100">
+                                        <i data-lucide="file-text" class="w-10 h-10 text-rose-400 mb-2 transition-transform group-hover/inner:scale-110"></i>
+                                        <span class="text-[10px] font-bold text-rose-700 truncate w-full text-center px-1 mb-2">${safeFileName}</span>
+                                        <button type="button" onclick="event.stopPropagation(); window.openPdfModalFromPool('${q.globalId}')" class="px-3 py-1.5 bg-rose-500 text-white rounded-lg text-[10px] font-bold shadow-sm hover:bg-rose-600 flex items-center gap-1 transition-colors z-10">
+                                            <i data-lucide="maximize" class="w-3 h-3 pointer-events-none"></i> Tam Ekran Gör
+                                        </button>
+                                    </div>
+                                ` : `
+                                    <img src="${q.image || window.FALLBACK_IMG}" onerror="this.onerror=null; this.src=window.FALLBACK_IMG;" class="max-w-full max-h-full object-contain mix-blend-multiply" />
+                                `}
+                                
+                                <!-- AI Butonu Hem PDF hem Görsel İçin -->
+                                <button type="button" onclick="event.stopPropagation(); window.poolLogic.analyzeTopic('${q.globalId}')" class="absolute bottom-2 right-2 bg-indigo-600/90 hover:bg-indigo-700 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 z-20 shadow-md transition-colors opacity-0 group-hover:opacity-100">
+                                    <i data-lucide="brain" class="w-3 h-3 pointer-events-none"></i> AI Konu Bul
+                                </button>
+                            </div>
+                            
+                            <div class="p-2 bg-white border-t border-slate-100 flex flex-col justify-between gap-1">
+                                <div class="flex items-center justify-between">
+                                    <p class="text-xs font-bold text-slate-800 truncate">${q.subjectName}</p>
+                                    <p class="text-[9px] text-slate-400 truncate ml-2" title="${safeExamName}">${safeExamName}</p>
+                                </div>
+                                <input type="text" value="${safeTopic}" 
+                                       placeholder="Konuyu buraya yazın..."
+                                       onchange="window.poolLogic.updateTopic('${q.globalId}', this.value)"
+                                       onclick="event.stopPropagation();"
+                                       class="w-full text-[11px] text-indigo-700 font-semibold bg-indigo-50 border border-indigo-100 rounded px-1.5 py-1 focus:outline-none focus:border-indigo-400 focus:bg-white transition-colors">
+                            </div>
+                        </div>`;
+                    }).join('');
+                    setTimeout(() => lucide.createIcons(), 10);
+                }
+            } catch (err) {
+                console.error("Havuz çizim hatası:", err);
+                ui.pool.grid.innerHTML = `<div class="col-span-full p-4 bg-red-50 text-red-600 rounded-lg text-sm font-semibold border border-red-200">Soru havuzu yüklenirken bir hata oluştu: ${err.message}</div>`;
+            }
+        };
+
+        window.renderPrintView = () => {
+            const selectedQuestions = Array.from(window.selectedQuestionIds).map(id => window.allQuestionsPool.find(q => q.globalId === id)).filter(Boolean);
+            ui.print.container.innerHTML = selectedQuestions.map((q, index) => `
+                <div class="print-avoid-break flex flex-col">
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-2 mb-3">
+                        <span class="font-bold text-slate-800 text-lg">Soru ${index + 1}</span>
+                        <div class="text-right">
+                            <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">${q.subjectName}</div>
+                            <div class="text-[10px] text-slate-500">${(q.topic || '').replace(/"/g, '&quot;')}</div>
+                        </div>
+                    </div>
+                    ${q.isPdf ? `
+                        <div class="flex-1 flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-slate-300 bg-slate-50 p-4 rounded-xl">
+                            <i data-lucide="file-text" class="w-12 h-12 text-slate-400 mb-2"></i>
+                            <span class="text-sm font-bold text-slate-600">Bu soru PDF formatındadır.</span>
+                            <span class="text-xs text-slate-500 text-center mt-1">Lütfen dijital ortamda veya orijinal PDF dosyasından yazdırınız.</span>
+                        </div>
+                    ` : `
+                        <div class="flex-1 flex items-center justify-center min-h-[200px]">
+                            <img src="${q.image || window.FALLBACK_IMG}" onerror="this.onerror=null; this.src=window.FALLBACK_IMG;" class="max-w-full max-h-[400px] object-contain mix-blend-multiply" style="width:100%;" />
+                        </div>
+                    `}
+                </div>
+            `).join('');
+        };
+
+        window.renderAddTestContent = () => {
+            let correct = parseInt(window.addTestFormState.correct) || 0;
+            let incorrect = parseInt(window.addTestFormState.incorrect) || 0;
+            let blank = parseInt(window.addTestFormState.blank) || 0;
+            let showUpload = incorrect > 0 || blank > 0 || window.addTestFormState.questions.length > 0;
+            
+            ui.addTest.container.innerHTML = `
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <div class="flex flex-col md:flex-row md:items-center gap-4">
+                    <div class="font-semibold text-indigo-900 md:w-1/4">
+                        ${window.addTestFormState.subject}
+                        <div id="add-test-net-score" class="text-xs text-indigo-500 mt-1 font-normal">Net: ${(correct - (incorrect / 3)).toFixed(2)}</div>
+                    </div>
+                    <div class="flex gap-2 md:w-3/4">
+                        <div class="flex-1">
+                            <label class="text-xs text-slate-500 mb-1">Doğru</label>
+                            <input type="number" min="0" value="${window.addTestFormState.correct !== '' ? window.addTestFormState.correct : ''}" oninput="window.addTestLogic.updateScore('correct', this.value)" class="w-full px-3 py-1.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 outline-none focus:ring-1 focus:ring-emerald-500">
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-xs text-slate-500 mb-1">Yanlış</label>
+                            <input type="number" min="0" value="${window.addTestFormState.incorrect !== '' ? window.addTestFormState.incorrect : ''}" oninput="window.addTestLogic.updateScore('incorrect', this.value)" class="w-full px-3 py-1.5 rounded border border-rose-200 bg-rose-50 text-rose-700 outline-none focus:ring-1 focus:ring-rose-500">
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-xs text-slate-500 mb-1">Boş</label>
+                            <input type="number" min="0" value="${window.addTestFormState.blank !== '' ? window.addTestFormState.blank : ''}" oninput="window.addTestLogic.updateScore('blank', this.value)" class="w-full px-3 py-1.5 rounded border border-slate-200 bg-white text-slate-700 outline-none focus:ring-1 focus:ring-slate-500">
+                        </div>
+                    </div>
+                </div>
+                <div id="add-test-upload-section" class="mt-4 pt-4 border-t border-slate-200 ${showUpload ? '' : 'hidden-safe'}">
+                    <div class="flex justify-between mb-3">
+                        <h4 class="text-sm font-medium text-slate-700 flex gap-2"><i data-lucide="file-up" class="w-4 h-4"></i> Eklenen Dosyalar</h4>
+                        <label class="cursor-pointer bg-white border border-indigo-200 text-indigo-600 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-indigo-50 flex gap-2 transition-colors">
+                            <i data-lucide="file-plus" class="w-4 h-4"></i> Dosya Ekle
+                            <input type="file" accept=".pdf, image/*" multiple class="hidden" onchange="window.addTestLogic.onFileSelected(this)">
+                        </label>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        ${window.addTestFormState.questions.map((q, qIdx) => `
+                            <div class="relative group rounded-lg overflow-hidden border border-slate-200 bg-white flex flex-col">
+                                <button onclick="window.addTestLogic.removeQuestion(${qIdx})" class="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full z-10 hover:bg-red-600 shadow"><i data-lucide="trash-2" class="w-3 h-3 pointer-events-none"></i></button>
+                                
+                                <div class="aspect-[4/3] relative bg-slate-100 flex items-center justify-center p-2 text-center group/inner cursor-pointer" ${q.isPdf ? `onclick="window.openPdfModalFromAddTest(${qIdx})"` : ""}>
+                                    ${q.isAnalyzing ? `<div class="text-indigo-600 text-center"><i data-lucide="brain" class="w-8 h-8 animate-pulse mb-2 mx-auto"></i><span class="text-xs font-bold block">AI Çalışıyor...</span></div>` 
+                                    : (q.isPdf ? `
+                                        <div class="flex flex-col items-center justify-center w-full h-full bg-indigo-50/50 p-2 transition-colors hover:bg-indigo-100">
+                                            <i data-lucide="file-text" class="w-10 h-10 text-indigo-400 mb-2 transition-transform group-hover/inner:scale-110"></i>
+                                            <span class="text-[10px] font-bold text-rose-700 truncate w-full text-center px-1 mb-2">${(q.fileName || 'PDF Dosyası').replace(/"/g, '&quot;')}</span>
+                                            <button type="button" class="px-3 py-1.5 bg-rose-500 text-white rounded-lg text-[10px] font-bold shadow-sm hover:bg-rose-600 flex items-center gap-1 transition-colors">
+                                                <i data-lucide="maximize" class="w-3 h-3 pointer-events-none"></i> Tam Ekran Gör
+                                            </button>
+                                        </div>
+                                    ` : `<img src="${q.image || window.FALLBACK_IMG}" onerror="this.onerror=null; this.src=window.FALLBACK_IMG;" class="max-w-full max-h-full object-contain mix-blend-multiply" />`)}
+                                    
+                                    ${(!q.isAnalyzing) ? `
+                                        <div class="absolute inset-0 bg-slate-900/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onclick="event.stopPropagation(); window.addTestLogic.analyzeTopic(${qIdx})" type="button" class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg text-xs font-bold flex flex-col items-center gap-1 shadow-lg transform hover:scale-105 transition-all">
+                                                <i data-lucide="brain" class="w-5 h-5 pointer-events-none"></i>
+                                                <span>AI Konu Analizi Yap</span>
+                                            </button>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                                <div class="p-2 border-t border-slate-100 bg-slate-50 flex items-center gap-2">
+                                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Konu:</div>
+                                    <input type="text" value="${(q.topic || '').replace(/"/g, '&quot;')}" onchange="window.addTestLogic.updateQuestionTopic(${qIdx}, this.value)" placeholder="${q.isPdf ? 'Manuel giriniz...' : 'AI belirleyecek...'}" class="flex-1 bg-white border border-slate-200 rounded px-2 py-1 text-xs text-indigo-700 font-semibold focus:outline-none focus:border-indigo-400" />
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>`;
+            setTimeout(() => lucide.createIcons(), 10);
+        };
+
+        window.renderAddFormSubjects = () => {
+            ui.add.subjectsContainer.innerHTML = window.addFormState.subjects.map((subj, sIdx) => {
+                let correct = parseInt(subj.correct) || 0, incorrect = parseInt(subj.incorrect) || 0, blank = parseInt(subj.blank) || 0;
+                let showUpload = incorrect > 0 || blank > 0 || subj.questions.length > 0;
+                
+                return `
+                <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                    <div class="flex flex-col md:flex-row md:items-center gap-4">
+                        <div class="font-semibold text-indigo-900 md:w-1/4">
+                            ${subj.name}
+                            <div id="net-score-${sIdx}" class="text-xs text-indigo-500 mt-1 font-normal">Net: ${(correct - (incorrect / 3)).toFixed(2)}</div>
+                        </div>
+                        <div class="flex gap-2 md:w-3/4">
+                            <div class="flex-1">
+                                <label class="text-xs text-slate-500 mb-1">Doğru</label>
+                                <input type="number" min="0" value="${subj.correct !== '' ? subj.correct : ''}" oninput="window.addExamLogic.updateSubject(${sIdx}, 'correct', this.value)" class="w-full px-3 py-1.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 outline-none focus:ring-1 focus:ring-emerald-500">
+                            </div>
+                            <div class="flex-1">
+                                <label class="text-xs text-slate-500 mb-1">Yanlış</label>
+                                <input type="number" min="0" value="${subj.incorrect !== '' ? subj.incorrect : ''}" oninput="window.addExamLogic.updateSubject(${sIdx}, 'incorrect', this.value)" class="w-full px-3 py-1.5 rounded border border-rose-200 bg-rose-50 text-rose-700 outline-none focus:ring-1 focus:ring-rose-500">
+                            </div>
+                            <div class="flex-1">
+                                <label class="text-xs text-slate-500 mb-1">Boş</label>
+                                <input type="number" min="0" value="${subj.blank !== '' ? subj.blank : ''}" oninput="window.addExamLogic.updateSubject(${sIdx}, 'blank', this.value)" class="w-full px-3 py-1.5 rounded border border-slate-200 bg-white text-slate-700 outline-none focus:ring-1 focus:ring-slate-500">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="upload-section-${sIdx}" class="mt-4 pt-4 border-t border-slate-200 ${showUpload ? '' : 'hidden-safe'}">
+                        <div class="flex justify-between mb-3">
+                            <h4 class="text-sm font-medium text-slate-700 flex gap-2"><i data-lucide="file-up" class="w-4 h-4"></i> Eklenen Dosyalar</h4>
+                            <label class="cursor-pointer bg-white border border-indigo-200 text-indigo-600 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-indigo-50 flex gap-2 transition-colors">
+                                <i data-lucide="file-plus" class="w-4 h-4"></i> Dosya Ekle
+                                <input type="file" accept=".pdf, image/*" multiple class="hidden" onchange="window.addExamLogic.onFileSelected(${sIdx}, this)">
+                            </label>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            ${subj.questions.map((q, qIdx) => `
+                                <div class="relative group rounded-lg overflow-hidden border border-slate-200 bg-white flex flex-col">
+                                    <button onclick="window.addExamLogic.removeQuestion(${sIdx}, ${qIdx})" class="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full z-10 hover:bg-red-600 shadow"><i data-lucide="trash-2" class="w-3 h-3 pointer-events-none"></i></button>
+                                    
+                                    <div class="aspect-[4/3] relative bg-slate-100 flex items-center justify-center p-2 text-center group/inner cursor-pointer" ${q.isPdf ? `onclick="window.openPdfModalFromAdd(${sIdx}, ${qIdx})"` : ""}>
+                                        ${q.isAnalyzing ? `<div class="text-indigo-600 text-center"><i data-lucide="brain" class="w-8 h-8 animate-pulse mb-2 mx-auto"></i><span class="text-xs font-bold block">AI Çalışıyor...</span></div>` 
+                                        : (q.isPdf ? `
+                                            <div class="flex flex-col items-center justify-center w-full h-full bg-indigo-50/50 p-2 transition-colors hover:bg-indigo-100">
+                                                <i data-lucide="file-text" class="w-10 h-10 text-indigo-400 mb-2 transition-transform group-hover/inner:scale-110"></i>
+                                                <span class="text-[10px] font-bold text-rose-700 truncate w-full text-center px-1 mb-2">${(q.fileName || 'PDF Dosyası').replace(/"/g, '&quot;')}</span>
+                                                <button type="button" class="px-3 py-1.5 bg-rose-500 text-white rounded-lg text-[10px] font-bold shadow-sm hover:bg-rose-600 flex items-center gap-1 transition-colors">
+                                                    <i data-lucide="maximize" class="w-3 h-3 pointer-events-none"></i> Tam Ekran Gör
+                                                </button>
+                                            </div>
+                                        ` : `<img src="${q.image || window.FALLBACK_IMG}" onerror="this.onerror=null; this.src=window.FALLBACK_IMG;" class="max-w-full max-h-full object-contain mix-blend-multiply" />`)}
+                                        
+                                        ${(!q.isAnalyzing) ? `
+                                            <div class="absolute inset-0 bg-slate-900/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onclick="event.stopPropagation(); window.addExamLogic.analyzeTopic(${sIdx}, ${qIdx})" type="button" class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg text-xs font-bold flex flex-col items-center gap-1 shadow-lg transform hover:scale-105 transition-all">
+                                                    <i data-lucide="brain" class="w-5 h-5 pointer-events-none"></i>
+                                                    <span>AI Konu Analizi Yap</span>
+                                                </button>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                    <div class="p-2 border-t border-slate-100 bg-slate-50 flex items-center gap-2">
+                                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Konu:</div>
+                                        <input type="text" value="${(q.topic || '').replace(/"/g, '&quot;')}" onchange="window.addExamLogic.updateQuestionTopic(${sIdx}, ${qIdx}, this.value)" placeholder="${q.isPdf ? 'Manuel giriniz...' : 'AI belirleyecek...'}" class="flex-1 bg-white border border-slate-200 rounded px-2 py-1 text-xs text-indigo-700 font-semibold focus:outline-none focus:border-indigo-400" />
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+            setTimeout(() => lucide.createIcons(), 10);
+        };
+
+        // ==========================================
+        // 6. UYGULAMA MANTIĞI FONKSİYONLARI VE YÖNLENDİRME
+        // ==========================================
+        window.appNav = {
+            goTo: (viewName) => {
+                Object.values(ui.views).forEach(el => { if(el) el.classList.add('hidden-safe'); });
+                if(ui.topHeader) ui.topHeader.classList.remove('hidden-safe');
+                
+                ['dashboard', 'add', 'addTest', 'upload', 'pool', 'settings', 'analysis'].forEach(key => {
+                    if(ui.navBtn[key]) ui.navBtn[key].className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-slate-800/50 hover:text-white mt-1";
+                });
+                
+                if (viewName === 'pool' || viewName === 'upload') {
+                    const btn = ui.navBtn[viewName];
+                    if (btn) {
+                        btn.classList.add('border', 'border-indigo-500/30', 'bg-indigo-900/20', 'text-indigo-300');
+                        btn.classList.remove('hover:bg-slate-800/50', 'hover:text-white');
+                    }
+                }
+                
+                if (ui.navBtn.analysis) {
+                    ui.navBtn.analysis.classList.add('border', 'border-emerald-500/30', 'bg-emerald-900/20', 'text-emerald-300');
+                    if(viewName !== 'analysis') ui.navBtn.analysis.classList.remove('bg-emerald-600/10', 'text-emerald-400');
+                }
+
+                if (viewName === 'dashboard') {
+                    if(ui.views.dashboard) ui.views.dashboard.classList.remove('hidden-safe');
+                    if (ui.navBtn.dashboard) ui.navBtn.dashboard.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors bg-indigo-600/10 text-indigo-400 mt-1";
+                    if(ui.topTitle) ui.topTitle.innerHTML = 'Genel Bakış';
+                    if(ui.topActions) ui.topActions.innerHTML = `<button onclick="window.appNav.goTo('add-test')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors shadow-sm"><i data-lucide="plus" class="w-4 h-4"></i> Yeni Ekle</button>`;
+                    if(window.renderDashboard) window.renderDashboard();
+                } else if (viewName === 'add') {
+                    window.addFormState = {
+                        name: '', date: new Date().toISOString().split('T')[0], location: '',
+                        subjects: DEFAULT_SUBJECTS.map(name => ({ name, correct: 0, incorrect: 0, blank: 0, questions: [] }))
+                    };
+                    if(ui.add.name) ui.add.name.value = ''; 
+                    if(ui.add.date) ui.add.date.value = window.addFormState.date; 
+                    if(ui.add.location) ui.add.location.value = '';
+                    if(window.renderAddFormSubjects) window.renderAddFormSubjects();
+                    if(ui.views.add) ui.views.add.classList.remove('hidden-safe');
+                    if (ui.navBtn.add) ui.navBtn.add.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors bg-indigo-600/10 text-indigo-400 mt-1";
+                    if(ui.topTitle) ui.topTitle.innerHTML = 'Yeni Deneme Veri Girişi';
+                    if(ui.topActions) ui.topActions.innerHTML = '';
+                } else if (viewName === 'add-test') {
+                    window.addTestFormState = {
+                        name: '', date: new Date().toISOString().split('T')[0], subject: 'Türkçe', correct: 0, incorrect: 0, blank: 0, questions: []
+                    };
+                    if(ui.addTest.name) ui.addTest.name.value = ''; 
+                    if(ui.addTest.date) ui.addTest.date.value = window.addTestFormState.date; 
+                    if(ui.addTest.subject) ui.addTest.subject.value = 'Türkçe';
+                    if(window.renderAddTestContent) window.renderAddTestContent();
+                    if(ui.views.addTest) ui.views.addTest.classList.remove('hidden-safe');
+                    if (ui.navBtn.addTest) ui.navBtn.addTest.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors bg-indigo-600/10 text-indigo-400 mt-1";
+                    if(ui.topTitle) ui.topTitle.innerHTML = 'Yeni Tekil Test Girişi';
+                    if(ui.topActions) ui.topActions.innerHTML = '';
+                } else if (viewName === 'upload') {
+                    if(ui.views.upload) ui.views.upload.classList.remove('hidden-safe');
+                    if(ui.topTitle) ui.topTitle.innerHTML = 'Soru Yükleme ve Tasnif Merkezi';
+                    if(ui.topActions) ui.topActions.innerHTML = '';
+                    if(window.uploadLogic && window.uploadLogic.clear) window.uploadLogic.clear();
+                } else if (viewName === 'analysis') {
+                    if(ui.views.analysis) ui.views.analysis.classList.remove('hidden-safe');
+                    if (ui.navBtn.analysis) ui.navBtn.analysis.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors bg-emerald-600/20 text-emerald-300 border border-emerald-500/50 mt-1";
+                    if(ui.topTitle) ui.topTitle.innerHTML = 'Konu Başarı Analizi';
+                    if(ui.topActions) ui.topActions.innerHTML = '';
+                    if (window.renderAnalysisView) window.renderAnalysisView();
+                } else if (viewName === 'pool') {
+                    if(window.extractQuestionsToPool) window.extractQuestionsToPool();
+                    if(window.renderPoolGrid) window.renderPoolGrid();
+                    if(ui.pool.count) ui.pool.count.innerText = window.selectedQuestionIds.size;
+                    if(ui.pool.btn) ui.pool.btn.disabled = window.selectedQuestionIds.size === 0;
+                    const delBtnEl = document.getElementById('pool-delete-selected-btn');
+                    if (delBtnEl) delBtnEl.disabled = window.selectedQuestionIds.size === 0;
+
+                    if(ui.views.pool) ui.views.pool.classList.remove('hidden-safe');
+                    if (ui.navBtn.pool) ui.navBtn.pool.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors bg-indigo-600/20 text-indigo-300 border border-indigo-500/50 mt-1";
+                    if(ui.topTitle) ui.topTitle.innerHTML = 'Arşiv Soru Havuzu';
+                    if(ui.topActions) ui.topActions.innerHTML = `<button onclick="window.poolLogic.clearSelection();" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors shadow-sm"><i data-lucide="refresh-cw" class="w-4 h-4 pointer-events-none"></i> Seçimi Temizle</button>`;
+                } else if (viewName === 'print') {
+                    if(ui.topHeader) ui.topHeader.classList.add('hidden-safe');
+                    if(ui.views.print) ui.views.print.classList.remove('hidden-safe');
+                    if(window.renderPrintView) window.renderPrintView();
+                } else if (viewName === 'settings') {
+                    if(ui.views.settings) ui.views.settings.classList.remove('hidden-safe');
+                    if (ui.navBtn.settings) ui.navBtn.settings.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors bg-indigo-600/10 text-indigo-400 mt-1";
+                    if(ui.topTitle) ui.topTitle.innerHTML = 'Ayarlar & Bulut Bağlantısı';
+                    if(ui.topActions) ui.topActions.innerHTML = '';
+                } else if (viewName === 'detail') {
+                    if(ui.views.detail) ui.views.detail.classList.remove('hidden-safe');
+                    if(ui.topTitle) ui.topTitle.innerHTML = 'Kayıt Sonuç Raporu';
+                    if(window.currentSelectedExam && ui.topActions) {
+                        ui.topActions.innerHTML = `<button onclick="window.deleteExam('${window.currentSelectedExam.id}')" class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors border border-red-200"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i> Sil</button>`;
+                    }
+                    if(window.renderDetail) window.renderDetail();
+                }
+                setTimeout(() => lucide.createIcons(), 10);
+            }
+        };
+
+        // YENİ: TEKİL SORU SİLME MOTORU
+        window.deleteQuestion = (examId, subjectName, questionId) => {
+            window.customModal.show("Soruyu Sil", "Bu soruyu kalıcı olarak silmek istediğinize emin misiniz?", true, async () => {
+                if (!window.currentUser && !window.isLocalMode) return;
+                const exam = window.examsData.find(e => e.id === examId);
+                if (!exam) return;
+                const subj = exam.subjects.find(s => s.name === subjectName);
+                if (!subj) return;
+
+                const qIndex = subj.questions.findIndex(q => q.id === questionId);
+                if (qIndex > -1) {
+                    subj.questions.splice(qIndex, 1);
+                    if (subj.incorrect > 0) subj.incorrect -= 1;
+                } else return;
+
+                const finalPayload = getCleanExamPayload(exam);
+
+                try {
+                    if (window.isLocalMode) {
+                        const idx = window.localExamsMemory.findIndex(e => e.id === exam.id);
+                        if (idx > -1) {
+                            window.localExamsMemory[idx] = finalPayload;
+                            if(window.localSnapshotTrigger) window.localSnapshotTrigger(window.localExamsMemory);
+                        }
+                    } else {
+                        const docRef = doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'exams', exam.id);
+                        await updateDoc(docRef, { subjects: finalPayload.subjects });
+                    }
+                    
+                    const poolView = document.getElementById('view-pool');
+                    const detailView = document.getElementById('view-detail');
+                    
+                    if (poolView && !poolView.classList.contains('hidden-safe')) {
+                        if(window.extractQuestionsToPool) window.extractQuestionsToPool();
+                        if(window.renderPoolGrid) window.renderPoolGrid();
+                        if(window.renderAnalysisView) window.renderAnalysisView();
+                    }
+                    if (detailView && !detailView.classList.contains('hidden-safe')) {
+                        if(window.renderDetail) window.renderDetail();
+                    }
+                    
+                } catch (err) {
+                    window.customModal.show("Hata", "Soru silinemedi: " + err.message);
+                }
+            });
+        };
+
+        window.deleteExam = (id) => {
+            window.customModal.show("Silme Onayı", "Bu veriyi silmek istediğinize emin misiniz?", true, async () => {
+                if (!window.currentUser && !window.isLocalMode) return;
+                try {
+                    if (window.isLocalMode) {
+                        window.localExamsMemory = window.localExamsMemory.filter(e => e.id !== id);
+                        if(window.localSnapshotTrigger) window.localSnapshotTrigger(window.localExamsMemory);
+                    } else { 
+                        await deleteDoc(doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'exams', id)); 
+                    }
+                    if (window.currentSelectedExam && window.currentSelectedExam.id === id) {
+                        if(window.appNav.goTo) window.appNav.goTo('dashboard');
+                    }
+                } catch (err) { window.customModal.show("Hata", "Silinemedi: " + err.message); }
+            });
+        };
+
+        window.selectExam = (id) => { 
+            window.currentSelectedExam = window.examsData.find(e => e.id === id); 
+            if (window.currentSelectedExam && window.appNav.goTo) window.appNav.goTo('detail'); 
+        };
+
         window.poolLogic = {
             filter: (subjectName) => {
                 window.currentPoolFilter = subjectName;
@@ -858,16 +1599,21 @@
                 window.selectedQuestionIds.clear();
                 const countEl = document.getElementById('pool-selected-count');
                 const btnEl = document.getElementById('pool-create-test-btn');
+                const delBtnEl = document.getElementById('pool-delete-selected-btn');
                 if (countEl) countEl.innerText = '0';
                 if (btnEl) btnEl.disabled = true;
+                if (delBtnEl) delBtnEl.disabled = true;
                 window.poolLogic.filter('Tümü');
             },
             toggleQuestion: (globalId) => {
                 if (window.selectedQuestionIds.has(globalId)) window.selectedQuestionIds.delete(globalId); else window.selectedQuestionIds.add(globalId);
                 const countEl = document.getElementById('pool-selected-count');
                 const btnEl = document.getElementById('pool-create-test-btn');
+                const delBtnEl = document.getElementById('pool-delete-selected-btn');
                 if(countEl) countEl.innerText = window.selectedQuestionIds.size;
                 if(btnEl) btnEl.disabled = window.selectedQuestionIds.size === 0;
+                if(delBtnEl) delBtnEl.disabled = window.selectedQuestionIds.size === 0;
+                
                 const card = document.getElementById(`pool-card-${globalId}`);
                 if (card) {
                     if (window.selectedQuestionIds.has(globalId)) {
@@ -878,6 +1624,74 @@
                         card.querySelector('.check-indicator').classList.add('hidden');
                     }
                 }
+            },
+            // YENİ: TOPLU SİLME MOTORU
+            deleteSelected: async () => {
+                if (window.selectedQuestionIds.size === 0) return;
+                
+                window.customModal.show("Seçili Soruları Sil", `${window.selectedQuestionIds.size} adet soruyu kalıcı olarak silmek istediğinize emin misiniz?`, true, async () => {
+                    if (!window.currentUser && !window.isLocalMode) return;
+                    
+                    try {
+                        const updatesByExam = {};
+                        
+                        window.selectedQuestionIds.forEach(globalId => {
+                            const qInfo = window.allQuestionsPool.find(q => q.globalId === globalId);
+                            if (qInfo) {
+                                if (!updatesByExam[qInfo.examId]) updatesByExam[qInfo.examId] = [];
+                                updatesByExam[qInfo.examId].push(qInfo);
+                            }
+                        });
+
+                        let hasChanges = false;
+
+                        for (const examId in updatesByExam) {
+                            const exam = window.examsData.find(e => e.id === examId);
+                            if (!exam) continue;
+                            
+                            const questionsToDelete = updatesByExam[examId];
+                            
+                            questionsToDelete.forEach(qInfo => {
+                                const subj = exam.subjects.find(s => s.name === qInfo.subjectName);
+                                if (subj) {
+                                    const qIndex = subj.questions.findIndex(q => q.id === qInfo.questionId);
+                                    if(qIndex > -1) {
+                                        subj.questions.splice(qIndex, 1);
+                                        if (subj.incorrect > 0) subj.incorrect -= 1;
+                                        hasChanges = true;
+                                    }
+                                }
+                            });
+
+                            const finalPayload = getCleanExamPayload(exam);
+
+                            if (window.isLocalMode) {
+                                const idx = window.localExamsMemory.findIndex(e => e.id === exam.id);
+                                if (idx > -1) {
+                                    window.localExamsMemory[idx] = finalPayload;
+                                }
+                            } else {
+                                const docRef = doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'exams', exam.id);
+                                await updateDoc(docRef, { subjects: finalPayload.subjects });
+                            }
+                        }
+
+                        if (window.isLocalMode && hasChanges && window.localSnapshotTrigger) {
+                            window.localSnapshotTrigger(window.localExamsMemory);
+                        }
+
+                        window.poolLogic.clearSelection();
+                        if(window.extractQuestionsToPool) window.extractQuestionsToPool();
+                        if(window.renderPoolGrid) window.renderPoolGrid();
+                        if(window.renderAnalysisView) window.renderAnalysisView();
+                        
+                        window.customModal.show("Başarılı", "Seçili sorular başarıyla silindi.");
+
+                    } catch(e) {
+                        console.error(e);
+                        window.customModal.show("Hata", "Sorular silinirken bir hata oluştu: " + e.message);
+                    }
+                });
             },
             analyzeTopic: async (globalId) => {
                 const qInfo = window.allQuestionsPool.find(q => q.globalId === globalId);
@@ -1061,7 +1875,7 @@
                         </div>
 
                         <button onclick="window.uploadLogic.removeFile('${f.id}')" class="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-2 rounded-lg transition-colors shrink-0">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            <i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i>
                         </button>
                     </li>
                 `).join('');
