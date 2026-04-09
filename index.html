@@ -882,6 +882,7 @@
                                 examId: exam.id,
                                 subjectName: subj.name,
                                 questionIndex: idx,
+                                questionId: q.id, // YENİ: Soru silmek için gerekli
                                 examName: exam.name,
                                 image: q.image || q.cleanImage || q.originalImage || '',
                                 isPdf: q.isPdf || false,
@@ -891,6 +892,49 @@
                         });
                     }
                 });
+            });
+        };
+
+        // YENİ: TEKİL SORU SİLME MOTORU
+        window.deleteQuestion = (examId, subjectName, questionId) => {
+            window.customModal.show("Soruyu Sil", "Bu soruyu kalıcı olarak silmek istediğinize emin misiniz?", true, async () => {
+                if (!window.currentUser) return;
+                const exam = window.examsData.find(e => e.id === examId);
+                if (!exam) return;
+                const subj = exam.subjects.find(s => s.name === subjectName);
+                if (!subj) return;
+
+                // Soruyu listeden çıkart ve yanlış sayısını 1 düşür (opsiyonel otomatik hesaplama)
+                subj.questions = subj.questions.filter(q => q.id !== questionId);
+                if (subj.incorrect > 0) subj.incorrect -= 1;
+
+                const finalPayload = getCleanExamPayload(exam);
+
+                try {
+                    if (window.isLocalMode) {
+                        const idx = window.localExamsMemory.findIndex(e => e.id === exam.id);
+                        if (idx > -1) {
+                            window.localExamsMemory[idx] = finalPayload;
+                            if(window.localSnapshotTrigger) window.localSnapshotTrigger(window.localExamsMemory);
+                        }
+                    } else {
+                        const docRef = doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'exams', exam.id);
+                        await updateDoc(docRef, { subjects: finalPayload.subjects });
+                    }
+                    
+                    // Görünümleri Canlı Güncelle
+                    if (!document.getElementById('view-pool').classList.contains('hidden-safe')) {
+                        if(window.extractQuestionsToPool) window.extractQuestionsToPool();
+                        if(window.renderPoolGrid) window.renderPoolGrid();
+                    }
+                    if (!document.getElementById('view-detail').classList.contains('hidden-safe')) {
+                        if(window.renderDetail) window.renderDetail();
+                    }
+                    
+                    window.customModal.show("Başarılı", "Soru başarıyla silindi ve deneme/test güncellendi.");
+                } catch (err) {
+                    window.customModal.show("Hata", "Soru silinemedi: " + err.message);
+                }
             });
         };
 
@@ -999,7 +1043,12 @@
                                 <div>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         ${subj.questions.map(q => `
-                                            <div class="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm flex flex-col">
+                                            <div class="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm flex flex-col relative group">
+                                                <!-- YENİ: Tekil Soru Silme Butonu -->
+                                                <button type="button" onclick="event.stopPropagation(); window.deleteQuestion('${ex.id}', '${subj.name}', '${q.id}')" class="absolute top-2 left-2 bg-rose-500/90 hover:bg-rose-600 text-white p-1.5 rounded-lg z-30 shadow-sm transition-colors opacity-0 group-hover:opacity-100" title="Soruyu Sil">
+                                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                                </button>
+
                                                 ${q.isPdf ? `
                                                     <div class="aspect-[4/3] bg-rose-50/50 p-2 flex flex-col items-center justify-center relative group/inner cursor-pointer transition-colors hover:bg-rose-100" onclick="window.openPdfModalFromExam('${ex.id}', '${subj.name}', '${q.id}')">
                                                         <i data-lucide="file-text" class="w-10 h-10 text-rose-400 mb-2 transition-transform group-hover/inner:scale-110"></i>
@@ -1129,6 +1178,11 @@
                         
                         return `
                         <div id="pool-card-${q.globalId}" class="relative group cursor-pointer bg-white rounded-xl overflow-hidden border ${borderClass} transition-all hover:shadow-md flex flex-col" onclick="window.poolLogic.toggleQuestion('${q.globalId}')">
+                            <!-- YENİ: Tekil Soru Silme Butonu -->
+                            <button type="button" onclick="event.stopPropagation(); window.deleteQuestion('${q.examId}', '${q.subjectName}', '${q.questionId}')" class="absolute top-3 left-3 bg-rose-500/90 hover:bg-rose-600 text-white p-1.5 rounded-lg z-30 shadow-sm transition-colors opacity-0 group-hover:opacity-100" title="Soruyu Sil">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                            
                             <div class="check-indicator absolute top-3 right-3 bg-indigo-500 text-white p-1 rounded-full z-20 shadow-sm ${checkClass}"><i data-lucide="check" class="w-4 h-4 text-white font-bold"></i></div>
                             
                             <div class="image-container aspect-[4/3] bg-slate-100 p-2 flex-1 flex items-center justify-center relative group/inner">
