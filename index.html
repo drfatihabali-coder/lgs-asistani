@@ -184,7 +184,7 @@
                         <div class="bg-white p-4 rounded-full shadow-sm mb-4 text-indigo-500 border border-slate-100">
                             <i data-lucide="cloud-upload" class="w-10 h-10"></i>
                         </div>
-                        <h3 class="text-lg font-bold text-slate-800 mb-1">Temizlenmiş Soru PDF'lerini (5MB'a kadar) Sürükleyin</h3>
+                        <h3 class="text-lg font-bold text-slate-800 mb-1">Temizlenmiş Soru PDF'lerini (50MB'a kadar) Sürükleyin</h3>
                         <p class="text-slate-500 text-sm">veya seçmek için tıklayın (Çoklu seçim yapabilirsiniz)</p>
                     </div>
 
@@ -629,13 +629,40 @@
             } catch (e) { return base64; }
         };
 
-        window.openPdfModal = (base64Data, title) => {
+        // YENİ GÖRÜNTÜLEME VE İNDİRME MOTORU
+        window.openPdfModal = (fileData, title) => {
             document.getElementById('pdf-viewer-title').innerHTML = `<i data-lucide="file-text" class="text-rose-400 w-6 h-6"></i> ${title || "PDF Önizleme"}`;
+            
+            let urlToOpen = fileData;
+            let isBase64 = fileData.startsWith('data:');
+            
+            // Eğer PDF kod (base64) ise tarayıcının okuyabileceği formata (Blob) çevir.
+            if (isBase64) {
+                try {
+                    const binStr = atob(fileData.split(',')[1]);
+                    const len = binStr.length;
+                    const arr = new Uint8Array(len);
+                    for (let i = 0; i < len; i++) { arr[i] = binStr.charCodeAt(i); }
+                    const blob = new Blob([arr], { type: 'application/pdf' });
+                    urlToOpen = URL.createObjectURL(blob);
+                } catch (e) { console.error("Blob dönüşüm hatası", e); }
+            }
+
+            document.getElementById('pdf-viewer-iframe').src = urlToOpen + (urlToOpen.includes('#') ? "" : "#toolbar=0&navpanes=0&scrollbar=0");
+            
+            // İndirme Butonu Mantığı
             document.getElementById('pdf-viewer-download').onclick = () => {
-                const a = document.createElement('a'); a.href = base64Data; a.download = title || "soru.pdf"; a.click();
+                if (isBase64) {
+                    const a = document.createElement('a'); 
+                    a.href = urlToOpen; 
+                    a.download = title || "soru.pdf"; 
+                    a.click();
+                } else {
+                    // Firebase Linkiyse, yan sekmede açtır. Tarayıcı indirmeyi otomatik başlatır.
+                    window.open(fileData, '_blank');
+                }
             };
-            const url = base64Data.length > 500 ? base64ToBlobUrl(base64Data) : base64Data;
-            document.getElementById('pdf-viewer-iframe').src = url + (url.includes('#') ? "" : "#toolbar=0&navpanes=0&scrollbar=0");
+            
             document.getElementById('pdf-viewer-modal').classList.remove('hidden-safe');
             lucide.createIcons();
         };
@@ -643,6 +670,36 @@
         window.closePdfModal = () => {
             document.getElementById('pdf-viewer-iframe').src = "about:blank"; 
             document.getElementById('pdf-viewer-modal').classList.add('hidden-safe');
+        };
+
+        // YENİ HTML TEMİZLEME ARAÇLARI (Sayfayı çökerten devasa kodları ayırdık)
+        window.openPdfModalFromUpload = (id) => {
+            const f = window.uploadLogic.filesData.find(x => x.id === id);
+            if(f) window.openPdfModal(f.base64, f.fileObj.name);
+        };
+
+        window.openPdfModalFromAdd = (sIdx, qIdx) => {
+            const q = window.addFormState.subjects[sIdx].questions[qIdx];
+            if(q) window.openPdfModal(q.image, q.fileName);
+        };
+
+        window.openPdfModalFromAddTest = (qIdx) => {
+            const q = window.addTestFormState.questions[qIdx];
+            if(q) window.openPdfModal(q.image, q.fileName);
+        };
+
+        window.openPdfModalFromExam = (examId, subjName, qId) => {
+            const exam = window.examsData.find(e => e.id === examId);
+            if(!exam) return;
+            const subj = exam.subjects.find(s => s.name === subjName);
+            if(!subj) return;
+            const q = subj.questions.find(x => x.id === qId);
+            if(q) window.openPdfModal(q.image, q.fileName);
+        };
+
+        window.openPdfModalFromPool = (globalId) => {
+            const q = window.allQuestionsPool.find(x => x.globalId === globalId);
+            if(q) window.openPdfModal(q.image, q.fileName);
         };
 
         const compressImage = (file, maxWidth = 800, quality = 0.6) => {
@@ -916,7 +973,7 @@
                                         ${subj.questions.map(q => `
                                             <div class="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm flex flex-col">
                                                 ${q.isPdf ? `
-                                                    <div class="aspect-[4/3] bg-rose-50/50 p-2 flex flex-col items-center justify-center relative group/inner cursor-pointer transition-colors hover:bg-rose-100" onclick="window.openPdfModal('${q.image}', '${q.fileName}')">
+                                                    <div class="aspect-[4/3] bg-rose-50/50 p-2 flex flex-col items-center justify-center relative group/inner cursor-pointer transition-colors hover:bg-rose-100" onclick="window.openPdfModalFromExam('${ex.id}', '${subj.name}', '${q.id}')">
                                                         <i data-lucide="file-text" class="w-10 h-10 text-rose-400 mb-2 transition-transform group-hover/inner:scale-110"></i>
                                                         <span class="text-[10px] font-bold text-rose-700 truncate w-full text-center px-2 mb-2">${q.fileName || 'PDF Dosyası'}</span>
                                                         <button type="button" class="px-3 py-1.5 bg-rose-500 text-white rounded-lg text-[10px] font-bold shadow-sm hover:bg-rose-600 flex items-center gap-1 transition-colors">
@@ -1046,13 +1103,15 @@
                                 <div class="flex flex-col items-center justify-center w-full h-full bg-rose-50/50 p-2 transition-colors hover:bg-rose-100">
                                     <i data-lucide="file-text" class="w-10 h-10 text-rose-400 mb-2 transition-transform group-hover/inner:scale-110"></i>
                                     <span class="text-[10px] font-bold text-rose-700 truncate w-full text-center px-1 mb-2">${q.fileName || 'PDF Dosyası'}</span>
-                                    <button type="button" onclick="event.stopPropagation(); window.openPdfModal('${imageSrc}', '${q.fileName}')" class="px-3 py-1.5 bg-rose-500 text-white rounded-lg text-[10px] font-bold shadow-sm hover:bg-rose-600 flex items-center gap-1 transition-colors z-10">
+                                    <button type="button" onclick="event.stopPropagation(); window.openPdfModalFromPool('${q.globalId}')" class="px-3 py-1.5 bg-rose-500 text-white rounded-lg text-[10px] font-bold shadow-sm hover:bg-rose-600 flex items-center gap-1 transition-colors z-10">
                                         <i data-lucide="maximize" class="w-3 h-3"></i> Tam Ekran Gör
                                     </button>
                                 </div>
                             ` : `
                                 <img src="${imageSrc}" class="max-w-full max-h-full object-contain mix-blend-multiply" />
                             `}
+                            
+                            <!-- AI Butonu Hem PDF hem Görsel İçin -->
                             <button type="button" onclick="event.stopPropagation(); window.poolLogic.analyzeTopic('${q.globalId}')" class="absolute bottom-2 right-2 bg-indigo-600/90 hover:bg-indigo-700 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 z-20 shadow-md transition-colors opacity-0 group-hover:opacity-100">
                                 <i data-lucide="brain" class="w-3 h-3"></i> AI Konu Bul
                             </button>
@@ -1142,7 +1201,7 @@
                             <div class="relative group rounded-lg overflow-hidden border border-slate-200 bg-white flex flex-col">
                                 <button onclick="window.addTestLogic.removeQuestion(${qIdx})" class="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full z-10 hover:bg-red-600 shadow"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
                                 
-                                <div class="aspect-[4/3] relative bg-slate-100 flex items-center justify-center p-2 text-center group/inner cursor-pointer" ${q.isPdf ? `onclick="window.openPdfModal('${q.image}', '${q.fileName}')"` : ""}>
+                                <div class="aspect-[4/3] relative bg-slate-100 flex items-center justify-center p-2 text-center group/inner cursor-pointer" ${q.isPdf ? `onclick="window.openPdfModalFromAddTest(${qIdx})"` : ""}>
                                     ${q.isAnalyzing ? `<div class="text-indigo-600 text-center"><i data-lucide="brain" class="w-8 h-8 animate-pulse mb-2 mx-auto"></i><span class="text-xs font-bold block">AI Çalışıyor...</span></div>` 
                                     : (q.isPdf ? `
                                         <div class="flex flex-col items-center justify-center w-full h-full bg-indigo-50/50 p-2 transition-colors hover:bg-indigo-100">
@@ -1215,7 +1274,7 @@
                                 <div class="relative group rounded-lg overflow-hidden border border-slate-200 bg-white flex flex-col">
                                     <button onclick="window.addExamLogic.removeQuestion(${sIdx}, ${qIdx})" class="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full z-10 hover:bg-red-600 shadow"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
                                     
-                                    <div class="aspect-[4/3] relative bg-slate-100 flex items-center justify-center p-2 text-center group/inner cursor-pointer" ${q.isPdf ? `onclick="window.openPdfModal('${q.image}', '${q.fileName}')"` : ""}>
+                                    <div class="aspect-[4/3] relative bg-slate-100 flex items-center justify-center p-2 text-center group/inner cursor-pointer" ${q.isPdf ? `onclick="window.openPdfModalFromAdd(${sIdx}, ${qIdx})"` : ""}>
                                         ${q.isAnalyzing ? `<div class="text-indigo-600 text-center"><i data-lucide="brain" class="w-8 h-8 animate-pulse mb-2 mx-auto"></i><span class="text-xs font-bold block">AI Çalışıyor...</span></div>` 
                                         : (q.isPdf ? `
                                             <div class="flex flex-col items-center justify-center w-full h-full bg-indigo-50/50 p-2 transition-colors hover:bg-indigo-100">
