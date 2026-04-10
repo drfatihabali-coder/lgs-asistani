@@ -423,6 +423,7 @@
                 <div class="flex items-center justify-between mb-2"><h2 class="text-2xl font-bold text-slate-800">Uygulama Ayarları</h2></div>
                 <p class="text-sm text-slate-500 mb-6">Uygulamayı yerel bilgisayarınızda (çevrimdışı) çalıştırırken kendi bulut veritabanınıza ve yapay zeka hizmetlerine bağlamak için bu ayarları kullanın.</p>
 
+                <!-- YAPAY ZEKA BAĞLANTISI -->
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="bg-indigo-50 border-b border-indigo-100 p-4 flex items-center gap-3">
                         <div class="bg-indigo-600 p-2 rounded-lg text-white"><i data-lucide="sparkles" class="w-5 h-5"></i></div>
@@ -436,6 +437,7 @@
                     </div>
                 </div>
 
+                <!-- FİREBASE BAĞLANTISI -->
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-6">
                     <div class="bg-emerald-50 border-b border-emerald-100 p-4 flex items-center gap-3">
                         <div class="bg-emerald-600 p-2 rounded-lg text-white"><i data-lucide="database" class="w-5 h-5"></i></div>
@@ -457,6 +459,7 @@
                     </div>
                 </div>
 
+                <!-- ESKİ HESAP KURTARMA -->
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-6">
                     <div class="bg-rose-50 border-b border-rose-100 p-4 flex items-center gap-3">
                         <div class="bg-rose-600 p-2 rounded-lg text-white"><i data-lucide="life-buoy" class="w-5 h-5"></i></div>
@@ -475,6 +478,30 @@
                         <div class="flex gap-3">
                             <input type="text" id="setting-custom-uid" placeholder="Eski uzun ID kodunuzu buraya yapıştırın..." class="flex-1 px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-rose-500 outline-none font-mono text-sm">
                             <button onclick="window.settingsLogic.saveCustomUid()" class="bg-rose-600 hover:bg-rose-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors whitespace-nowrap">Hesabı Kurtar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- YENİ: JSON YEDEKLEME VE GERİ YÜKLEME -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-6">
+                    <div class="bg-blue-50 border-b border-blue-100 p-4 flex items-center gap-3">
+                        <div class="bg-blue-600 p-2 rounded-lg text-white"><i data-lucide="file-json" class="w-5 h-5"></i></div>
+                        <div>
+                            <h3 class="text-lg font-bold text-blue-900">Veri Yedeği (JSON İçe / Dışa Aktar)</h3>
+                            <p class="text-xs text-blue-700">Tüm sorularınızı ve denemelerinizi JSON dosyası olarak bilgisayarınıza indirebilir veya geri yükleyebilirsiniz.</p>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <button onclick="window.settingsLogic.exportJSON()" class="flex-1 bg-white border-2 border-blue-200 hover:border-blue-500 hover:bg-blue-50 text-blue-700 font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2">
+                                <i data-lucide="download" class="w-5 h-5"></i> Yedeği İndir
+                            </button>
+                            <div class="flex-1 relative">
+                                <input type="file" id="import-json-input" accept=".json" class="hidden" onchange="window.settingsLogic.importJSON(event)">
+                                <button onclick="document.getElementById('import-json-input').click()" class="w-full h-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-md">
+                                    <i data-lucide="upload" class="w-5 h-5"></i> Yedekten Yükle
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -505,7 +532,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, updateDoc, setDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
         // ==========================================
@@ -942,7 +969,87 @@
                         if(btn) { btn.innerHTML = originalText; if(window.lucide) window.lucide.createIcons(); }
                     }
                 });
+            },
+            // YENİ: JSON YEDEĞİ İNDİRME
+            exportJSON: () => {
+                if (!window.examsData || window.examsData.length === 0) {
+                    return window.customModal.show("Uyarı", "Dışa aktarılacak veri bulunamadı.");
+                }
+                const dataStr = JSON.stringify(window.examsData, null, 2);
+                const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+                const exportFileDefaultName = `LGS_Asistani_Yedek_${new Date().toISOString().split('T')[0]}.json`;
+                
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                linkElement.click();
+            },
+            // YENİ: JSON YEDEĞİ YÜKLEME
+            importJSON: (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        if (!Array.isArray(importedData)) throw new Error("Geçersiz dosya formatı.");
+                        
+                        window.customModal.show("Yedeği Yükle", `<b>${importedData.length}</b> adet deneme/test kaydı bulundu. Yüklemek istediğinize emin misiniz? <br><br><span class='text-xs text-slate-500'>(Mevcut verilerinizin üzerine eklenecektir.)</span>`, true, async () => {
+                            try {
+                                if (window.isLocalMode) {
+                                    importedData.forEach(exam => {
+                                        const existingIdx = window.localExamsMemory.findIndex(existing => existing.id === exam.id);
+                                        if (existingIdx > -1) window.localExamsMemory[existingIdx] = exam;
+                                        else window.localExamsMemory.push(exam);
+                                    });
+                                    if (window.localSnapshotTrigger) window.localSnapshotTrigger(window.localExamsMemory);
+                                    window.customModal.show("Başarılı", "Yedek başarıyla yüklendi.");
+                                } else {
+                                    if (!window.currentUser) throw new Error("Oturum açık değil.");
+                                    let count = 0;
+                                    for (const exam of importedData) {
+                                        const docRef = doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'exams', exam.id);
+                                        await setDoc(docRef, exam);
+                                        count++;
+                                    }
+                                    window.customModal.show("Başarılı", `${count} adet kayıt başarıyla buluta yüklendi.`);
+                                }
+                            } catch (err) {
+                                window.customModal.show("Hata", "Yükleme sırasında hata oluştu: " + err.message);
+                            }
+                        });
+                    } catch (err) {
+                        window.customModal.show("Hata", "Dosya okunamadı veya bozuk JSON formatı.");
+                    }
+                    document.getElementById('import-json-input').value = ""; 
+                };
+                reader.readAsText(file);
             }
+        };
+
+        window.extractQuestionsToPool = () => {
+            window.allQuestionsPool = [];
+            (window.examsData || []).forEach(exam => {
+                (exam.subjects || []).forEach(subj => {
+                    if (subj.questions && subj.questions.length > 0) {
+                        subj.questions.forEach((q, idx) => {
+                            window.allQuestionsPool.push({
+                                globalId: `${exam.id}_${subj.name}_${idx}`,
+                                examId: exam.id,
+                                subjectName: subj.name,
+                                questionIndex: idx,
+                                questionId: q.id,
+                                examName: exam.name,
+                                image: q.image || q.cleanImage || q.originalImage || '',
+                                isPdf: q.isPdf || false,
+                                fileName: q.fileName || 'Soru',
+                                topic: q.topic || "Belirtilmemiş"
+                            });
+                        });
+                    }
+                });
+            });
         };
 
         // ==========================================
