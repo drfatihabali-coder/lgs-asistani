@@ -684,7 +684,7 @@
                 const btn = document.getElementById('pdf-viewer-download');
                 const originalHTML = btn.innerHTML;
                 btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> İndiriliyor...`;
-                lucide.createIcons();
+                if(window.lucide) window.lucide.createIcons();
                 
                 try {
                     if (isBase64) {
@@ -720,12 +720,12 @@
                     window.customModal.show("Hata", "İndirme sırasında bir sorun oluştu.");
                 } finally {
                     btn.innerHTML = originalHTML;
-                    lucide.createIcons();
+                    if(window.lucide) window.lucide.createIcons();
                 }
             };
             
             document.getElementById('pdf-viewer-modal').classList.remove('hidden-safe');
-            lucide.createIcons();
+            if(window.lucide) window.lucide.createIcons();
         };
 
         window.closePdfModal = () => {
@@ -905,8 +905,7 @@
                 window.customModal.show("Tüm Verileri Kalıcı Olarak Sil", "DİKKAT! Bu işlem geri alınamaz. Arşivdeki tüm denemeler, testler, analizler ve Soru Havuzundaki tüm sorular kalıcı olarak silinecektir. Devam etmek istiyor musunuz?", true, async () => {
                     const btn = document.querySelector('button[onclick="window.settingsLogic.deleteAllData()"]');
                     const originalText = btn ? btn.innerHTML : '';
-                    if(btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Siliniyor...`;
-                    lucide.createIcons();
+                    if(btn) { btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Siliniyor...`; if(window.lucide) window.lucide.createIcons(); }
 
                     try {
                         if (window.isLocalMode) {
@@ -924,8 +923,7 @@
                     } catch (err) {
                         window.customModal.show("Hata", "Veriler silinirken bir hata oluştu: " + err.message);
                     } finally {
-                        if(btn) btn.innerHTML = originalText;
-                        lucide.createIcons();
+                        if(btn) { btn.innerHTML = originalText; if(window.lucide) window.lucide.createIcons(); }
                     }
                 });
             }
@@ -1026,7 +1024,7 @@
                     }).join('');
                 }
                 ui.sidebarRecent.innerHTML = window.examsData.slice(0, 5).map(ex => `<button type="button" onclick="window.selectExam('${ex.id}')" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"><span class="truncate pr-2 text-left">${ex.name || 'İsimsiz'}</span><i data-lucide="chevron-right" class="w-4 h-4 opacity-50 flex-shrink-0 pointer-events-none"></i></button>`).join('') || `<p class="px-3 text-xs text-slate-600 italic">Kayıt bulunamadı.</p>`;
-                setTimeout(() => lucide.createIcons(), 10);
+                if(window.lucide) window.lucide.createIcons();
             } catch (err) { ui.dashboard.grid.innerHTML = `<div class="col-span-full p-4 bg-red-50 text-red-600 rounded-lg text-sm font-semibold border border-red-200">Hata: ${err.message}.</div>`; }
         };
 
@@ -1061,7 +1059,6 @@
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         ${subj.questions.map(q => `
                                             <div class="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm flex flex-col relative group">
-                                                <!-- YENİ: Tekil Soru Silme Butonu -->
                                                 <button type="button" onclick="event.stopPropagation(); window.deleteQuestion('${ex.id}', '${subj.name}', '${q.id}')" class="absolute top-2 left-2 bg-rose-500/90 hover:bg-rose-600 text-white p-1.5 rounded-lg z-30 shadow-sm transition-colors opacity-0 group-hover:opacity-100" title="Soruyu Sil">
                                                     <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i>
                                                 </button>
@@ -1090,7 +1087,7 @@
                         </div>
                     `).join('')}
                 </div>`;
-            setTimeout(() => lucide.createIcons(), 10);
+            if(window.lucide) window.lucide.createIcons();
         };
 
         window.renderAnalysisView = () => {
@@ -1173,7 +1170,7 @@
                 `;
             }
             ui.analysis.container.innerHTML = html;
-            setTimeout(() => lucide.createIcons(), 10);
+            if(window.lucide) window.lucide.createIcons();
         };
 
         window.renderPoolGrid = () => {
@@ -1195,7 +1192,6 @@
                         
                         return `
                         <div id="pool-card-${q.globalId}" class="relative group cursor-pointer bg-white rounded-xl overflow-hidden border ${borderClass} transition-all hover:shadow-md flex flex-col" onclick="window.poolLogic.toggleQuestion('${q.globalId}')">
-                            <!-- YENİ: Havuzda Tekil Soru Silme Butonu -->
                             <button type="button" onclick="event.stopPropagation(); window.deleteQuestion('${q.examId}', '${q.subjectName}', '${q.questionId}')" class="absolute top-3 left-3 bg-rose-500/90 hover:bg-rose-600 text-white p-1.5 rounded-lg z-30 shadow-sm transition-colors opacity-0 group-hover:opacity-100" title="Soruyu Sil">
                                 <i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i>
                             </button>
@@ -1215,7 +1211,6 @@
                                     <img src="${q.image || window.FALLBACK_IMG}" onerror="this.onerror=null; this.src=window.FALLBACK_IMG;" class="max-w-full max-h-full object-contain mix-blend-multiply" />
                                 `}
                                 
-                                <!-- AI Butonu Hem PDF hem Görsel İçin -->
                                 <button type="button" onclick="event.stopPropagation(); window.poolLogic.analyzeTopic('${q.globalId}')" class="absolute bottom-2 right-2 bg-indigo-600/90 hover:bg-indigo-700 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 z-20 shadow-md transition-colors opacity-0 group-hover:opacity-100">
                                     <i data-lucide="brain" class="w-3 h-3 pointer-events-none"></i> AI Konu Bul
                                 </button>
@@ -1234,7 +1229,7 @@
                             </div>
                         </div>`;
                     }).join('');
-                    setTimeout(() => lucide.createIcons(), 10);
+                    if(window.lucide) window.lucide.createIcons();
                 }
             } catch (err) {
                 console.error("Havuz çizim hatası:", err);
@@ -1339,7 +1334,7 @@
                     </div>
                 </div>
             </div>`;
-            setTimeout(() => lucide.createIcons(), 10);
+            if(window.lucide) window.lucide.createIcons();
         };
 
         window.renderAddFormSubjects = () => {
@@ -1413,7 +1408,7 @@
                     </div>
                 </div>`;
             }).join('');
-            setTimeout(() => lucide.createIcons(), 10);
+            if(window.lucide) window.lucide.createIcons();
         };
 
         // ==========================================
@@ -1512,7 +1507,7 @@
                     }
                     if(window.renderDetail) window.renderDetail();
                 }
-                setTimeout(() => lucide.createIcons(), 10);
+                setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 10);
             }
         };
 
@@ -1700,7 +1695,7 @@
                 const imgContainer = document.querySelector(`#pool-card-${globalId} .image-container`);
                 if (imgContainer) {
                     imgContainer.innerHTML = `<div class="text-indigo-600 text-center flex flex-col items-center justify-center w-full h-full bg-slate-100"><i data-lucide="brain" class="w-8 h-8 animate-pulse mb-2 mx-auto"></i><span class="text-xs font-bold block">AI Analiz Ediyor...</span><span class="text-[10px]">Konu Bulunuyor</span></div>`;
-                    lucide.createIcons();
+                    if(window.lucide) window.lucide.createIcons();
                 }
 
                 try {
@@ -1792,7 +1787,7 @@
                     btn.disabled = true;
                     btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> İşleniyor...`;
                 }
-                lucide.createIcons();
+                if(window.lucide) window.lucide.createIcons();
 
                 const files = Array.from(filesList);
                 let hasAnalyzableFiles = false;
@@ -1840,7 +1835,7 @@
                 if(hasAnalyzableFiles && (typeof __firebase_config !== 'undefined' || currentApiKey)) {
                     if(aiBtn) aiBtn.classList.remove('hidden-safe');
                 }
-                lucide.createIcons();
+                if(window.lucide) window.lucide.createIcons();
             },
             renderList: () => {
                 const count = document.getElementById('upload-count');
@@ -1879,7 +1874,7 @@
                         </button>
                     </li>
                 `).join('');
-                lucide.createIcons();
+                if(window.lucide) window.lucide.createIcons();
             },
             removeFile: (id) => {
                 window.uploadLogic.filesData = window.uploadLogic.filesData.filter(f => f.id !== id);
@@ -1902,7 +1897,7 @@
                     aiBtn.disabled = true;
                     aiBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> AI Çalışıyor...`;
                 }
-                lucide.createIcons();
+                if(window.lucide) window.lucide.createIcons();
 
                 for (let i = 0; i < window.uploadLogic.filesData.length; i++) {
                     const f = window.uploadLogic.filesData[i];
@@ -1922,7 +1917,7 @@
                     aiBtn.disabled = false;
                     aiBtn.innerHTML = `<i data-lucide="brain" class="w-4 h-4"></i> PDF ve Görseller İçin Konu Bul (AI)`;
                 }
-                lucide.createIcons();
+                if(window.lucide) window.lucide.createIcons();
             },
             saveToDatabase: async () => {
                 if (window.uploadLogic.filesData.length === 0) return;
@@ -2045,7 +2040,7 @@
                         btn.disabled = false;
                         btn.innerHTML = `<i data-lucide="cloud" class="w-4 h-4"></i> Buluta Kaydet`;
                     }
-                    lucide.createIcons();
+                    if(window.lucide) window.lucide.createIcons();
                 }
             }
         };
@@ -2404,7 +2399,7 @@
             });
         }
 
-        initApp(); lucide.createIcons();
+        initApp(); if(window.lucide) window.lucide.createIcons();
     </script>
 </body>
 </html>
