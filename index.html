@@ -12,31 +12,78 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; border: 2px solid #f8fafc; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+        /* Masaüstü hissiyatı için özel scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 20px;
+            border: 2px solid #f8fafc;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background-color: #94a3b8;
+        }
         
+        /* Modal Animasyonları */
         .modal-enter { opacity: 0; transform: scale(0.95); }
         .modal-enter-active { opacity: 1; transform: scale(1); transition: all 0.2s ease-out; }
+        
+        /* Yükleme Ekranı Gizleme */
         .hidden-safe { display: none !important; }
+
+        /* Yazdırma (Print) CSS Ayarları */
+        @media print {
+            @page { margin: 1cm; size: A4 portrait; }
+            body { background: white !important; color: black !important; }
+            body * { visibility: hidden; }
+            #view-print, #view-print * { visibility: visible; }
+            #view-print { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0 !important; }
+            .no-print { display: none !important; }
+            .print-avoid-break { break-inside: avoid; page-break-inside: avoid; }
+        }
     </style>
 </head>
 <body class="bg-slate-900 h-screen w-screen overflow-hidden font-sans text-slate-800 selection:bg-indigo-100 flex">
 
+    <!-- Başlangıç Yükleme Ekranı -->
     <div id="loading-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900 text-white transition-opacity duration-300">
         <i data-lucide="loader-2" class="w-10 h-10 text-indigo-500 animate-spin mb-4"></i>
         <p class="text-slate-400 text-sm font-medium tracking-widest uppercase" id="loading-text">Sistem Başlatılıyor...</p>
     </div>
 
+    <!-- Özel Onay/Hata Modalı -->
     <div id="custom-modal" class="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-sm hidden-safe flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 transform transition-all" id="custom-modal-content">
             <h3 id="modal-title" class="text-lg font-bold text-slate-900 mb-2">Başlık</h3>
-            <div id="modal-message" class="text-sm text-slate-500 mb-6 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">Mesaj</div>
+            <div id="modal-message" class="text-sm text-slate-500 mb-6 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">Mesaj içeriği buraya gelecek.</div>
             <div class="flex justify-end gap-3">
                 <button id="modal-cancel-btn" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg hidden-safe">İptal</button>
                 <button id="modal-confirm-btn" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg">Tamam</button>
             </div>
+        </div>
+    </div>
+
+    <!-- PDF Tam Ekran Görüntüleme Modalı -->
+    <div id="pdf-viewer-modal" class="fixed inset-0 z-[110] bg-slate-900/95 backdrop-blur-md hidden-safe flex flex-col p-4 lg:p-8 transition-opacity">
+        <div class="flex justify-between items-center text-white mb-4 shrink-0 max-w-5xl mx-auto w-full">
+            <div class="flex flex-col">
+                <h3 id="pdf-viewer-title" class="text-xl font-bold flex items-center gap-2"><i data-lucide="file-text" class="text-rose-400"></i> PDF Önizleme</h3>
+                <span class="text-xs text-slate-400 font-medium">Eğer PDF tarayıcı koruması nedeniyle görüntülenemezse sağdaki İndir butonunu kullanın.</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <button id="pdf-viewer-download" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+                    <i data-lucide="download" class="w-4 h-4"></i> İndir
+                </button>
+                <button onclick="window.closePdfModal()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-full transition-colors"><i data-lucide="x"></i></button>
+            </div>
+        </div>
+        <div class="flex-1 bg-slate-800 rounded-xl overflow-hidden shadow-2xl relative w-full max-w-5xl mx-auto flex items-center justify-center border border-slate-700">
+             <iframe id="pdf-viewer-iframe" class="w-full h-full border-0 bg-white" title="PDF Görüntüleyici"></iframe>
         </div>
     </div>
 
@@ -103,6 +150,7 @@
         </div>
     </aside>
 
+    <!-- ANA İÇERİK ALANI -->
     <main class="flex-1 flex flex-col min-w-0 bg-slate-50 relative hidden-safe" id="main-content">
         <header id="top-header" class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 flex-shrink-0 select-none shadow-sm z-10">
             <h2 id="top-bar-title" class="text-lg font-bold text-slate-800 flex items-center gap-2">Genel Bakış</h2>
@@ -216,7 +264,7 @@
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
                     <div>
                         <h2 class="text-2xl font-bold text-slate-800">Konu Analizi ve Dağılımı</h2>
-                        <p class="text-sm text-slate-500 mt-1">Veritabanına JSON aracıyla kaydedilen eksik konuların grafikleri.</p>
+                        <p class="text-sm text-slate-500 mt-1">Veritabanına kaydedilen eksik konuların grafikleri.</p>
                     </div>
                     <div class="w-full sm:w-64 shrink-0">
                         <select id="analysis-filter" onchange="window.renderAnalysisView()" class="bg-white border border-slate-300 text-slate-700 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5 shadow-sm font-semibold outline-none cursor-pointer">
@@ -229,19 +277,28 @@
                 <div id="analysis-empty-state" class="hidden-safe text-center py-20 bg-white rounded-xl border border-dashed border-slate-300">
                     <i data-lucide="pie-chart" class="w-16 h-16 text-slate-300 mx-auto mb-4 block"></i>
                     <h3 class="text-lg font-medium text-slate-900 mb-2">Yeterli Veri Yok</h3>
-                    <p class="text-slate-500 max-w-sm mx-auto text-sm">Seçili kategoriye ait JSON veri bulunamadı.</p>
+                    <p class="text-slate-500 max-w-sm mx-auto text-sm">Seçili kategoriye ait konu verisi bulunamadı.</p>
+                </div>
+                <div id="analysis-info-alert" class="hidden-safe bg-blue-50 border border-blue-200 text-blue-800 text-sm p-4 rounded-xl mb-6 flex gap-3 items-start">
+                    <i data-lucide="info" class="w-5 h-5 flex-shrink-0 mt-0.5 text-blue-600"></i>
+                    <div>
+                        <strong class="text-blue-900">"Belirtilmemiş" Konular Hakkında:</strong>
+                        <p class="mt-1">
+                            Grafikte <b>"Belirtilmemiş"</b> olarak görünen hatalar, sadece yanlış/boş sayısı girdiğiniz (fotoğraf/PDF olmayan) veya soruyu yüklerken konusunu yazmadığınız sorulardır.
+                        </p>
+                    </div>
                 </div>
                 <div id="analysis-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
             </div>
 
-            <!-- GÖRÜNÜM: DIŞARIDAN JSON YÜKLEME VE DETAYLI KAYIT EKRANI -->
+            <!-- GÖRÜNÜM: DIŞARIDAN JSON YÜKLEME EKRANI -->
             <div id="view-jsonUpload" class="max-w-5xl mx-auto space-y-6 hidden-safe">
                 <div class="mb-6">
                     <h2 class="text-3xl font-extrabold text-indigo-900 mb-2 flex items-center gap-3">
                         <i data-lucide="file-json" class="w-8 h-8 text-rose-500"></i>
                         JSON Analiz Yükle
                     </h2>
-                    <p class="text-slate-600">Başka bir araçtan (AI vb.) kopyaladığınız <code>.json</code> formatındaki analiz dosyanızı sisteme entegre edin.</p>
+                    <p class="text-slate-600">Başka bir araçtan kopyaladığınız <code>.json</code> formatındaki analiz dosyanızı sisteme entegre edin.</p>
                 </div>
 
                 <div id="json-upload-error" class="bg-indigo-50/50 border border-indigo-200 text-indigo-800 p-8 rounded-2xl text-center shadow-sm">
@@ -250,22 +307,20 @@
                     </div>
                     <h3 class="text-xl font-bold mb-2">JSON Dosyasını Seçin</h3>
                     <p class="text-sm max-w-lg mx-auto text-slate-600 mb-6">
-                        Yapay zeka araçlarının size verdiği yanlış soru analiz kodlarını içeren JSON dosyasını buraya yükleyin. Sistem bunu akıllıca yorumlayıp formu dolduracaktır.
+                        Yapay zeka araçlarının size verdiği yanlış soru analiz kodlarını içeren JSON dosyasını buraya yükleyin.
                     </p>
-                    
                     <input type="file" id="local-json-upload" accept=".json" onchange="window.jsonUploadLogic.handleFileUpload(event)" class="text-sm text-slate-600 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer shadow-sm transition-colors w-full max-w-xs" />
                 </div>
 
                 <div id="json-upload-content" class="hidden-safe space-y-8">
                     <div class="bg-white rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
-                        
                         <div class="p-6 md:p-8 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                             <div>
                                 <h3 class="text-xl font-bold text-indigo-900 mb-1 flex items-center gap-2">
                                     <i data-lucide="database" class="w-6 h-6 text-indigo-600"></i> Analizi Ana Arşive Ekle
                                 </h3>
                                 <p class="text-sm text-slate-500">
-                                    Aşağıdaki tüm dersler için <strong>Toplam Soru</strong> miktarını giriniz. (Doğru sayısı otomatik hesaplanacaktır).
+                                    Aşağıdaki dersler için eksik alanları doldurarak arşive kaydedebilirsiniz.
                                 </p>
                             </div>
                             <button onclick="window.jsonUploadLogic.resetView()" class="text-xs text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm shrink-0">
@@ -274,12 +329,24 @@
                         </div>
                         
                         <div class="p-6 md:p-8 relative z-10">
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <!-- YENİ DÜZENLEME: 4 Sütunlu Grid ve Dinamik Ders Seçimi -->
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                                 <div>
                                     <label class="block text-sm font-bold text-slate-800 mb-1">Kayıt Türü</label>
-                                    <select id="json-exam-type" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm text-sm font-medium">
+                                    <select id="json-exam-type" onchange="window.jsonUploadLogic.renderForm()" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm text-sm font-medium">
                                         <option value="exam">Genel Deneme</option>
                                         <option value="test">Tekil/Yaprak Test (Konu Testi)</option>
+                                    </select>
+                                </div>
+                                <div id="json-exam-subject-wrapper" class="hidden-safe">
+                                    <label class="block text-sm font-bold text-slate-800 mb-1">Ders Seçimi</label>
+                                    <select id="json-exam-subject" onchange="window.jsonUploadLogic.renderForm()" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm text-sm font-medium">
+                                        <option value="Türkçe">Türkçe</option>
+                                        <option value="Matematik">Matematik</option>
+                                        <option value="Fen Bilimleri">Fen Bilimleri</option>
+                                        <option value="T.C. İnkılap Tarihi">T.C. İnkılap Tarihi</option>
+                                        <option value="Din Kültürü">Din Kültürü</option>
+                                        <option value="Yabancı Dil">Yabancı Dil</option>
                                     </select>
                                 </div>
                                 <div>
@@ -295,7 +362,6 @@
                             <div class="mb-4 flex items-center justify-between">
                                 <div>
                                     <h4 class="text-base font-bold text-slate-800">Ders Bazlı Sonuç Girişi</h4>
-                                    <p class="text-xs text-slate-500 mt-1">Sadece "Toplam Soru"yu girmeniz yeterlidir. Boş bıraktığınız dersler arşive kaydedilmez.</p>
                                 </div>
                             </div>
 
@@ -318,10 +384,10 @@
                 <div class="flex items-center justify-between mb-2"><h2 class="text-2xl font-bold text-slate-800">Uygulama Ayarları</h2></div>
                 <p class="text-sm text-slate-500 mb-6">Sistemi kendi bulut veritabanınıza (Firebase) bağlamak için bu ayarları kullanın.</p>
 
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-6">
                     <div class="bg-emerald-50 border-b border-emerald-100 p-4 flex items-center gap-3">
                         <div class="bg-emerald-600 p-2 rounded-lg text-white"><i data-lucide="database" class="w-5 h-5"></i></div>
-                        <div><h3 class="text-lg font-bold text-emerald-900">Bulut Veritabanı (Firebase Config)</h3><p class="text-xs text-emerald-700">Verilerinizi senkronize tutun.</p></div>
+                        <div><h3 class="text-lg font-bold text-emerald-900">Bulut Veritabanı (Firebase Config)</h3></div>
                     </div>
                     <div class="p-6">
                         <div class="mb-4">
@@ -333,6 +399,44 @@
                         </div>
                     </div>
                 </div>
+                
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-6">
+                    <div class="bg-blue-50 border-b border-blue-100 p-4 flex items-center gap-3">
+                        <div class="bg-blue-600 p-2 rounded-lg text-white"><i data-lucide="file-json" class="w-5 h-5"></i></div>
+                        <div>
+                            <h3 class="text-lg font-bold text-blue-900">Veri Yedeği (JSON İçe / Dışa Aktar)</h3>
+                            <p class="text-xs text-blue-700">Tüm sorularınızı ve denemelerinizi JSON dosyası olarak bilgisayarınıza indirebilir veya geri yükleyebilirsiniz.</p>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <button onclick="window.settingsLogic.exportJSON()" class="flex-1 bg-white border-2 border-blue-200 hover:border-blue-500 hover:bg-blue-50 text-blue-700 font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2">
+                                <i data-lucide="download" class="w-5 h-5"></i> Yedeği İndir
+                            </button>
+                            <div class="flex-1 relative">
+                                <input type="file" id="import-json-input" accept=".json" class="hidden" onchange="window.settingsLogic.importJSON(event)">
+                                <button onclick="document.getElementById('import-json-input').click()" class="w-full h-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-md">
+                                    <i data-lucide="upload" class="w-5 h-5"></i> Yedekten Yükle
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-6">
+                    <div class="bg-red-50 border-b border-red-100 p-4 flex items-center gap-3">
+                        <div class="bg-red-600 p-2 rounded-lg text-white"><i data-lucide="alert-triangle" class="w-5 h-5"></i></div>
+                        <div>
+                            <h3 class="text-lg font-bold text-red-900">Veri Yönetimi (Tehlikeli Bölge)</h3>
+                            <p class="text-xs text-red-700">Sisteme yüklediğiniz tüm deneme, test ve soruları kalıcı olarak siler.</p>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <button onclick="window.settingsLogic.deleteAllData()" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors shadow-md">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i> Tüm Verileri Kalıcı Olarak Sil
+                        </button>
+                    </div>
+                </div>
             </div>
 
         </div>
@@ -342,7 +446,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, updateDoc, setDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ==========================================
         // 1. DEĞİŞKENLER VE YAPILANDIRMA
@@ -472,13 +576,17 @@
             hide: () => document.getElementById('custom-modal').classList.add('hidden-safe')
         };
 
+        const generateId = () => {
+            return Date.now().toString() + "-" + Math.random().toString(36).substr(2, 9);
+        };
+
         const getCleanExamPayload = (examObj) => {
             return {
                 name: String(examObj.name || ""), date: String(examObj.date || ""), location: String(examObj.location || ""),
                 subjects: (examObj.subjects || []).map(s => ({
                     name: String(s.name || ""), correct: Number(s.correct) || 0, incorrect: Number(s.incorrect) || 0, blank: Number(s.blank) || 0,
                     questions: Array.isArray(s.questions) ? s.questions.map(q => ({
-                        id: String(q.id || Date.now().toString()), 
+                        id: String(q.id || generateId()), 
                         topic: typeof q.topic === 'string' ? q.topic : (q.topic?.topic || "Belirtilmemiş")
                     })) : []
                 }))
@@ -517,7 +625,7 @@
                     </div>
                     <div class="bg-indigo-50 p-5 rounded-xl border border-indigo-200 shadow-sm flex items-center gap-4 ring-1 ring-indigo-100">
                         <div class="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center text-white"><i data-lucide="maximize-2" class="w-6 h-6"></i></div>
-                        <div><p class="text-[11px] font-bold text-indigo-200 uppercase tracking-wider">Ortalama Net</p><p class="text-2xl font-black text-slate-800">${averageNet}</p></div>
+                        <div><p class="text-[11px] font-bold text-indigo-800 uppercase tracking-wider">Ortalama Net</p><p class="text-2xl font-black text-slate-800">${averageNet}</p></div>
                     </div>
                 `;
 
@@ -551,7 +659,7 @@
                     }).join('');
                 }
                 ui.sidebarRecent.innerHTML = window.examsData.slice(0, 5).map(ex => `<button type="button" onclick="window.selectExam('${ex.id}')" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"><span class="truncate pr-2 text-left">${ex.name || 'İsimsiz'}</span><i data-lucide="chevron-right" class="w-4 h-4 opacity-50 flex-shrink-0 pointer-events-none"></i></button>`).join('') || `<p class="px-3 text-xs text-slate-600 italic">Kayıt bulunamadı.</p>`;
-                setTimeout(() => lucide.createIcons(), 10);
+                setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 10);
             } catch (err) { ui.dashboard.grid.innerHTML = `<div class="col-span-full p-4 bg-red-50 text-red-600 rounded-lg text-sm font-semibold border border-red-200">Hata: ${err.message}.</div>`; }
         };
 
@@ -586,14 +694,14 @@
                                 <div class="mt-3">
                                     <p class="text-xs font-bold text-slate-500 mb-2 uppercase">Hatalı Konular Dağılımı:</p>
                                     <div class="flex flex-wrap gap-2">
-                                        ${subj.questions.map(q => `<span class="bg-rose-50 text-rose-700 px-2.5 py-1 rounded text-xs font-semibold border border-rose-100">${q.topic}</span>`).join('')}
+                                        ${subj.questions.map(q => `<span class="bg-rose-50 text-rose-700 px-2.5 py-1 rounded text-xs font-semibold border border-rose-100">${(q.topic || '').replace(/"/g, '&quot;')}</span>`).join('')}
                                     </div>
                                 </div>
                             ` : ``}
                         </div>
                     `).join('')}
                 </div>`;
-            setTimeout(() => lucide.createIcons(), 10);
+            setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 10);
         };
 
         window.renderAnalysisView = () => {
@@ -633,14 +741,14 @@
             });
 
             if (!hasData) {
-                ui.analysis.container.innerHTML = '';
-                ui.analysis.empty.classList.remove('hidden-safe');
-                ui.analysis.infoAlert.classList.add('hidden-safe');
+                if(ui.analysis.container) ui.analysis.container.innerHTML = '';
+                if(ui.analysis.empty) ui.analysis.empty.classList.remove('hidden-safe');
+                if(ui.analysis.infoAlert) ui.analysis.infoAlert.classList.add('hidden-safe');
                 return;
             }
 
-            ui.analysis.empty.classList.add('hidden-safe');
-            ui.analysis.infoAlert.classList.remove('hidden-safe');
+            if(ui.analysis.empty) ui.analysis.empty.classList.add('hidden-safe');
+            if(ui.analysis.infoAlert) ui.analysis.infoAlert.classList.remove('hidden-safe');
             
             let html = '';
             for (const [subjectName, topicsObj] of Object.entries(analysisData)) {
@@ -672,8 +780,8 @@
                 </div>
                 `;
             }
-            ui.analysis.container.innerHTML = html;
-            setTimeout(() => lucide.createIcons(), 10);
+            if(ui.analysis.container) ui.analysis.container.innerHTML = html;
+            setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 10);
         };
 
         window.renderAddTestContent = () => {
@@ -704,6 +812,7 @@
                     </div>
                 </div>
             </div>`;
+            setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 10);
         };
 
         window.renderAddFormSubjects = () => {
@@ -734,6 +843,7 @@
                     </div>
                 </div>`;
             }).join('');
+            setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 10);
         };
 
         // ==========================================
@@ -744,8 +854,8 @@
             
             resetView: () => {
                 window.jsonUploadLogic.currentData = null;
-                ui.jsonUpload.content.classList.add('hidden-safe');
-                ui.jsonUpload.error.classList.remove('hidden-safe');
+                if(ui.jsonUpload.content) ui.jsonUpload.content.classList.add('hidden-safe');
+                if(ui.jsonUpload.error) ui.jsonUpload.error.classList.remove('hidden-safe');
             },
 
             calc: (inputEl) => {
@@ -770,18 +880,61 @@
             arayuzuGuncelle: (data) => {
                 window.jsonUploadLogic.currentData = data; 
                 
-                ui.jsonUpload.error.classList.add('hidden-safe');
-                ui.jsonUpload.content.classList.remove('hidden-safe');
+                if(ui.jsonUpload.error) ui.jsonUpload.error.classList.add('hidden-safe');
+                if(ui.jsonUpload.content) ui.jsonUpload.content.classList.remove('hidden-safe');
                 
                 if(ui.jsonUpload.examDate) ui.jsonUpload.examDate.value = new Date().toISOString().split('T')[0];
                 if(ui.jsonUpload.examName) ui.jsonUpload.examName.value = "";
-                ui.jsonUpload.subjectsForm.innerHTML = ''; 
+                
+                // Kayıt Türü'nü varsayılan olarak 'exam' (Genel Deneme) yap
+                if(ui.jsonUpload.examType) ui.jsonUpload.examType.value = "exam";
+
+                window.jsonUploadLogic.renderForm();
+            },
+            
+            // YENİ EKLENEN FONKSİYON: Formu Tekil Test veya Deneme seçimine göre yeniden çizer
+            renderForm: () => {
+                const data = window.jsonUploadLogic.currentData;
+                if (!data) return;
+
+                const examTypeEl = document.getElementById('json-exam-type');
+                const subjectWrapper = document.getElementById('json-exam-subject-wrapper');
+                const subjectEl = document.getElementById('json-exam-subject');
+                const formContainer = document.getElementById('json-subjects-form');
+                
+                if (!examTypeEl || !formContainer) return;
+
+                const examType = examTypeEl.value;
+                const selectedSubject = subjectEl ? subjectEl.value : 'Türkçe';
+
+                if (examType === 'test') {
+                    if (subjectWrapper) subjectWrapper.classList.remove('hidden-safe');
+                } else {
+                    if (subjectWrapper) subjectWrapper.classList.add('hidden-safe');
+                }
 
                 let formHtml = '';
+                const subjectsToRender = examType === 'test' ? [selectedSubject] : DEFAULT_SUBJECTS;
 
-                DEFAULT_SUBJECTS.forEach((dersAdi, index) => {
+                subjectsToRender.forEach((dersAdi, index) => {
                     const aktifRenkTxt = index % 2 === 0 ? "text-indigo-700" : "text-emerald-700";
-                    const dersVerisi = data.dersler[dersAdi] || { total: 0, konular: {} };
+                    let dersVerisi = { total: 0, konular: {} };
+
+                    // Eğer Tekil Test seçiliyse tüm JSON datasını seçilen derse ata
+                    if (examType === 'test') {
+                        for (let k in data.dersler) {
+                            let sd = data.dersler[k];
+                            dersVerisi.total += (sd.total || 0);
+                            if (sd.konular) {
+                                for (let t in sd.konular) {
+                                    dersVerisi.konular[t] = (dersVerisi.konular[t] || 0) + sd.konular[t];
+                                }
+                            }
+                        }
+                    } else {
+                        dersVerisi = data.dersler[dersAdi] || { total: 0, konular: {} };
+                    }
+
                     const prefilledYanlis = dersVerisi.total || 0;
                     
                     formHtml += `
@@ -812,8 +965,8 @@
                     `;
                 });
 
-                ui.jsonUpload.subjectsForm.innerHTML = formHtml;
-                setTimeout(() => lucide.createIcons(), 10);
+                formContainer.innerHTML = formHtml;
+                setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 10);
             },
 
             handleFileUpload: (event) => {
@@ -889,9 +1042,9 @@
                     return;
                 }
 
-                const examTypeInput = ui.jsonUpload.examType.value; 
-                const nameInput = ui.jsonUpload.examName.value.trim();
-                const dateInput = ui.jsonUpload.examDate.value || new Date().toISOString().split('T')[0];
+                const examTypeInput = ui.jsonUpload.examType ? ui.jsonUpload.examType.value : 'exam'; 
+                const nameInput = ui.jsonUpload.examName ? ui.jsonUpload.examName.value.trim() : 'İsimsiz Analiz';
+                const dateInput = (ui.jsonUpload.examDate && ui.jsonUpload.examDate.value) ? ui.jsonUpload.examDate.value : new Date().toISOString().split('T')[0];
 
                 if (!nameInput) {
                     window.customModal.show("Uyarı", "Lütfen bu analizi sisteme kaydetmek için bir <b>Adı / Başlığı</b> belirleyin.");
@@ -900,9 +1053,10 @@
 
                 if (!window.currentUser && !window.isLocalMode) return;
 
-                ui.jsonUpload.saveBtn.disabled = true; ui.jsonUpload.saveBtn.classList.add('opacity-70');
-                ui.jsonUpload.saveIconNormal.classList.add('hidden-safe'); ui.jsonUpload.saveIconLoading.classList.remove('hidden-safe');
-                ui.jsonUpload.saveText.innerText = "Sisteme Aktarılıyor...";
+                if(ui.jsonUpload.saveBtn) { ui.jsonUpload.saveBtn.disabled = true; ui.jsonUpload.saveBtn.classList.add('opacity-70'); }
+                if(ui.jsonUpload.saveIconNormal) ui.jsonUpload.saveIconNormal.classList.add('hidden-safe'); 
+                if(ui.jsonUpload.saveIconLoading) ui.jsonUpload.saveIconLoading.classList.remove('hidden-safe');
+                if(ui.jsonUpload.saveText) ui.jsonUpload.saveText.innerText = "Sisteme Aktarılıyor...";
 
                 try {
                     const examObj = {
@@ -912,19 +1066,40 @@
                         subjects: []
                     };
 
-                    const rows = ui.jsonUpload.subjectsForm.querySelectorAll('.json-subject-row');
+                    const rows = ui.jsonUpload.subjectsForm ? ui.jsonUpload.subjectsForm.querySelectorAll('.json-subject-row') : [];
+                    
+                    // Tekil test ise tüm konuları tek bir derse toplamak için hazırlık
+                    let aggregatedTopics = {};
+                    if (examTypeInput === 'test') {
+                        for (let k in data.dersler) {
+                            let sd = data.dersler[k];
+                            if (sd.konular) {
+                                for (let t in sd.konular) {
+                                    aggregatedTopics[t] = (aggregatedTopics[t] || 0) + sd.konular[t];
+                                }
+                            }
+                        }
+                    }
                     
                     rows.forEach(row => {
                         const subjName = row.getAttribute('data-subject');
                         
-                        const sTotal = parseInt(row.querySelector('.json-subj-total').value);
                         const sCorrect = parseInt(row.querySelector('.json-subj-correct').value) || 0;
                         const sIncorrect = parseInt(row.querySelector('.json-subj-incorrect').value) || 0;
                         const sBlank = parseInt(row.querySelector('.json-subj-blank').value) || 0;
 
-                        if (isNaN(sTotal) || sTotal === 0) return; 
+                        // Konuları ayarla (Türüne göre)
+                        let currentKonular = {};
+                        if (examTypeInput === 'test') {
+                            currentKonular = aggregatedTopics;
+                        } else {
+                            currentKonular = (data.dersler && data.dersler[subjName] && data.dersler[subjName].konular) ? data.dersler[subjName].konular : {};
+                        }
 
-                        const subjData = data.dersler ? data.dersler[subjName] : null;
+                        let hasTopics = Object.keys(currentKonular).length > 0;
+
+                        // Eğer kullanıcı giriş yapmadıysa ve JSON'da konu da yoksa bu dersi atla
+                        if (sCorrect === 0 && sIncorrect === 0 && sBlank === 0 && !hasTopics) return;
 
                         const subjObj = {
                             name: subjName,
@@ -934,10 +1109,11 @@
                             questions: []
                         };
 
-                        if (subjData && subjData.konular) {
-                            for (const [topicName, count] of Object.entries(subjData.konular)) {
+                        if (hasTopics) {
+                            for (const [topicName, count] of Object.entries(currentKonular)) {
                                 for(let i=0; i<count; i++) {
                                     subjObj.questions.push({
+                                        id: generateId(),
                                         topic: topicName
                                     });
                                 }
@@ -958,16 +1134,17 @@
                     }
 
                     window.customModal.show("Harika!", `<b>${nameInput}</b> başarıyla ana sisteme kaydedildi! Artık genel karnede ve analizlerde bu verileri görebilirsiniz.`);
-                    window.appNav.goTo('dashboard');
+                    if(window.appNav && window.appNav.goTo) window.appNav.goTo('dashboard');
                     window.jsonUploadLogic.resetView(); 
 
                 } catch (err) {
                     console.error(err);
                     window.customModal.show("Hata", "Kayıt sırasında bir sorun oluştu: " + err.message);
                 } finally {
-                    ui.jsonUpload.saveBtn.disabled = false; ui.jsonUpload.saveBtn.classList.remove('opacity-70');
-                    ui.jsonUpload.saveIconNormal.classList.remove('hidden-safe'); ui.jsonUpload.saveIconLoading.classList.add('hidden-safe');
-                    ui.jsonUpload.saveText.innerText = "Tüm Veriyi Arşive Kaydet";
+                    if(ui.jsonUpload.saveBtn) { ui.jsonUpload.saveBtn.disabled = false; ui.jsonUpload.saveBtn.classList.remove('opacity-70'); }
+                    if(ui.jsonUpload.saveIconNormal) ui.jsonUpload.saveIconNormal.classList.remove('hidden-safe'); 
+                    if(ui.jsonUpload.saveIconLoading) ui.jsonUpload.saveIconLoading.classList.add('hidden-safe');
+                    if(ui.jsonUpload.saveText) ui.jsonUpload.saveText.innerText = "Tüm Veriyi Arşive Kaydet";
                 }
             }
         };
@@ -978,7 +1155,7 @@
         window.appNav = {
             goTo: (viewName) => {
                 Object.values(ui.views).forEach(el => { if(el) el.classList.add('hidden-safe') });
-                ui.topHeader.classList.remove('hidden-safe');
+                if(ui.topHeader) ui.topHeader.classList.remove('hidden-safe');
                 
                 ['dashboard', 'add', 'addTest', 'settings', 'analysis', 'jsonUpload'].forEach(key => {
                     if(ui.navBtn[key]) ui.navBtn[key].className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-slate-800/50 hover:text-white mt-1";
@@ -995,61 +1172,67 @@
                 }
 
                 if (viewName === 'dashboard') {
-                    ui.views.dashboard.classList.remove('hidden-safe');
+                    if(ui.views.dashboard) ui.views.dashboard.classList.remove('hidden-safe');
                     if (ui.navBtn.dashboard) ui.navBtn.dashboard.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors bg-indigo-600/10 text-indigo-400 mt-1";
-                    ui.topTitle.innerHTML = 'Genel Bakış';
-                    ui.topActions.innerHTML = `<button onclick="window.appNav.goTo('jsonUpload')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors shadow-sm"><i data-lucide="plus" class="w-4 h-4"></i> Analiz Yükle</button>`;
+                    if(ui.topTitle) ui.topTitle.innerHTML = 'Genel Bakış';
+                    if(ui.topActions) ui.topActions.innerHTML = `<button onclick="window.appNav.goTo('jsonUpload')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors shadow-sm"><i data-lucide="plus" class="w-4 h-4"></i> Analiz Yükle</button>`;
                     if(window.renderDashboard) window.renderDashboard();
                 } else if (viewName === 'add') {
                     window.addFormState = {
                         name: '', date: new Date().toISOString().split('T')[0], location: '',
                         subjects: DEFAULT_SUBJECTS.map(name => ({ name, correct: 0, incorrect: 0, blank: 0, questions: [] }))
                     };
-                    ui.add.name.value = ''; ui.add.date.value = window.addFormState.date; ui.add.location.value = '';
+                    if(ui.add.name) ui.add.name.value = ''; 
+                    if(ui.add.date) ui.add.date.value = window.addFormState.date; 
+                    if(ui.add.location) ui.add.location.value = '';
                     if(window.renderAddFormSubjects) window.renderAddFormSubjects();
-                    ui.views.add.classList.remove('hidden-safe');
+                    if(ui.views.add) ui.views.add.classList.remove('hidden-safe');
                     if (ui.navBtn.add) ui.navBtn.add.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors bg-indigo-600/10 text-indigo-400 mt-1";
-                    ui.topTitle.innerHTML = 'Yeni Deneme Veri Girişi (Manuel)';
-                    ui.topActions.innerHTML = '';
+                    if(ui.topTitle) ui.topTitle.innerHTML = 'Yeni Deneme Veri Girişi (Manuel)';
+                    if(ui.topActions) ui.topActions.innerHTML = '';
                 } else if (viewName === 'add-test') {
                     window.addTestFormState = {
                         name: '', date: new Date().toISOString().split('T')[0], subject: 'Türkçe', correct: 0, incorrect: 0, blank: 0, questions: []
                     };
-                    ui.addTest.name.value = ''; ui.addTest.date.value = window.addTestFormState.date; ui.addTest.subject.value = 'Türkçe';
+                    if(ui.addTest.name) ui.addTest.name.value = ''; 
+                    if(ui.addTest.date) ui.addTest.date.value = window.addTestFormState.date; 
+                    if(ui.addTest.subject) ui.addTest.subject.value = 'Türkçe';
                     if(window.renderAddTestContent) window.renderAddTestContent();
-                    ui.views.addTest.classList.remove('hidden-safe');
+                    if(ui.views.addTest) ui.views.addTest.classList.remove('hidden-safe');
                     if (ui.navBtn.addTest) ui.navBtn.addTest.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors bg-indigo-600/10 text-indigo-400 mt-1";
-                    ui.topTitle.innerHTML = 'Yeni Tekil Test Girişi (Manuel)';
-                    ui.topActions.innerHTML = '';
+                    if(ui.topTitle) ui.topTitle.innerHTML = 'Yeni Tekil Test Girişi (Manuel)';
+                    if(ui.topActions) ui.topActions.innerHTML = '';
                 } else if (viewName === 'analysis') {
-                    ui.views.analysis.classList.remove('hidden-safe');
+                    if(ui.views.analysis) ui.views.analysis.classList.remove('hidden-safe');
                     if (ui.navBtn.analysis) ui.navBtn.analysis.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors bg-emerald-600/20 text-emerald-300 border border-emerald-500/50 mt-1";
-                    ui.topTitle.innerHTML = 'Konu Başarı Analizi';
-                    ui.topActions.innerHTML = '';
+                    if(ui.topTitle) ui.topTitle.innerHTML = 'Konu Başarı Analizi';
+                    if(ui.topActions) ui.topActions.innerHTML = '';
                     if (window.renderAnalysisView) window.renderAnalysisView();
                 } else if (viewName === 'jsonUpload') {
-                    ui.views.jsonUpload.classList.remove('hidden-safe');
+                    if(ui.views.jsonUpload) ui.views.jsonUpload.classList.remove('hidden-safe');
                     if (ui.navBtn.jsonUpload) ui.navBtn.jsonUpload.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors bg-rose-600/20 text-rose-300 border border-rose-500/50 mt-1";
-                    ui.topTitle.innerHTML = 'JSON Analiz ve Kayıt Merkezi';
-                    ui.topActions.innerHTML = '';
+                    if(ui.topTitle) ui.topTitle.innerHTML = 'JSON Analiz ve Kayıt Merkezi';
+                    if(ui.topActions) ui.topActions.innerHTML = '';
                 } else if (viewName === 'settings') {
-                    ui.views.settings.classList.remove('hidden-safe');
+                    if(ui.views.settings) ui.views.settings.classList.remove('hidden-safe');
                     if (ui.navBtn.settings) ui.navBtn.settings.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors bg-indigo-600/10 text-indigo-400 mt-1";
-                    ui.topTitle.innerHTML = 'Ayarlar & Bulut Bağlantısı';
-                    ui.topActions.innerHTML = '';
+                    if(ui.topTitle) ui.topTitle.innerHTML = 'Ayarlar & Bulut Bağlantısı';
+                    if(ui.topActions) ui.topActions.innerHTML = '';
                 } else if (viewName === 'detail') {
-                    ui.views.detail.classList.remove('hidden-safe');
-                    ui.topTitle.innerHTML = 'Kayıt Sonuç Raporu';
-                    ui.topActions.innerHTML = `<button onclick="window.deleteExam('${window.currentSelectedExam.id}')" class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors border border-red-200"><i data-lucide="trash-2" class="w-4 h-4"></i> Sil</button>`;
+                    if(ui.views.detail) ui.views.detail.classList.remove('hidden-safe');
+                    if(ui.topTitle) ui.topTitle.innerHTML = 'Kayıt Sonuç Raporu';
+                    if(window.currentSelectedExam && ui.topActions) {
+                        ui.topActions.innerHTML = `<button onclick="window.deleteExam('${window.currentSelectedExam.id}')" class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors border border-red-200"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i> Sil</button>`;
+                    }
                     if(window.renderDetail) window.renderDetail();
                 }
-                setTimeout(() => lucide.createIcons(), 10);
+                setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 10);
             }
         };
 
         window.deleteExam = (id) => {
             window.customModal.show("Silme Onayı", "Bu veriyi silmek istediğinize emin misiniz?", true, async () => {
-                if (!window.currentUser) return;
+                if (!window.currentUser && !window.isLocalMode) return;
                 try {
                     if (window.isLocalMode) {
                         window.localExamsMemory = window.localExamsMemory.filter(e => e.id !== id);
@@ -1057,14 +1240,16 @@
                     } else { 
                         await deleteDoc(doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'exams', id)); 
                     }
-                    if (window.currentSelectedExam && window.currentSelectedExam.id === id) window.appNav.goTo('dashboard');
+                    if (window.currentSelectedExam && window.currentSelectedExam.id === id) {
+                        if(window.appNav && window.appNav.goTo) window.appNav.goTo('dashboard');
+                    }
                 } catch (err) { window.customModal.show("Hata", "Silinemedi: " + err.message); }
             });
         };
 
         window.selectExam = (id) => { 
             window.currentSelectedExam = window.examsData.find(e => e.id === id); 
-            if (window.currentSelectedExam) window.appNav.goTo('detail'); 
+            if (window.currentSelectedExam && window.appNav && window.appNav.goTo) window.appNav.goTo('detail'); 
         };
 
         window.addTestLogic = {
@@ -1073,13 +1258,14 @@
                 if(window.renderAddTestContent) window.renderAddTestContent();
             },
             saveTest: async () => {
-                window.addTestFormState.name = ui.addTest.name.value; 
-                window.addTestFormState.date = ui.addTest.date.value; 
+                window.addTestFormState.name = ui.addTest.name ? ui.addTest.name.value : ''; 
+                window.addTestFormState.date = ui.addTest.date ? ui.addTest.date.value : ''; 
                 if (!window.addTestFormState.name.trim()) { window.customModal.show("Eksik Bilgi", "Lütfen test adını girin."); return; }
                 
-                ui.addTest.saveBtn.disabled = true; ui.addTest.saveBtn.classList.add('opacity-70');
-                ui.addTest.saveIconNormal.classList.add('hidden-safe'); ui.addTest.saveIconLoading.classList.remove('hidden-safe');
-                ui.addTest.saveText.innerText = "Kaydediliyor...";
+                if(ui.addTest.saveBtn) { ui.addTest.saveBtn.disabled = true; ui.addTest.saveBtn.classList.add('opacity-70'); }
+                if(ui.addTest.saveIconNormal) ui.addTest.saveIconNormal.classList.add('hidden-safe'); 
+                if(ui.addTest.saveIconLoading) ui.addTest.saveIconLoading.classList.remove('hidden-safe');
+                if(ui.addTest.saveText) ui.addTest.saveText.innerText = "Kaydediliyor...";
 
                 try {
                     const testExamObj = {
@@ -1106,12 +1292,13 @@
                         finalPayload.createdAt = serverTimestamp();
                         await addDoc(collection(db, 'artifacts', appId, 'users', window.currentUser.uid, 'exams'), finalPayload); 
                     }
-                    if(window.appNav.goTo) window.appNav.goTo('dashboard');
+                    if(window.appNav && window.appNav.goTo) window.appNav.goTo('dashboard');
                 } catch (err) { window.customModal.show("Kayıt Hatası", "Kaydedilemedi."); } 
                 finally { 
-                    ui.addTest.saveBtn.disabled = false; ui.addTest.saveBtn.classList.remove('opacity-70'); 
-                    ui.addTest.saveIconNormal.classList.remove('hidden-safe'); ui.addTest.saveIconLoading.classList.add('hidden-safe'); 
-                    ui.addTest.saveText.innerText = "Testi Kaydet";
+                    if(ui.addTest.saveBtn) { ui.addTest.saveBtn.disabled = false; ui.addTest.saveBtn.classList.remove('opacity-70'); }
+                    if(ui.addTest.saveIconNormal) ui.addTest.saveIconNormal.classList.remove('hidden-safe'); 
+                    if(ui.addTest.saveIconLoading) ui.addTest.saveIconLoading.classList.add('hidden-safe'); 
+                    if(ui.addTest.saveText) ui.addTest.saveText.innerText = "Testi Kaydet";
                 }
             }
         };
@@ -1125,12 +1312,15 @@
                 if (netScoreEl) netScoreEl.innerText = `Net: ${(c - (i / 3)).toFixed(2)}`;
             },
             saveExam: async () => {
-                window.addFormState.name = ui.add.name.value; window.addFormState.date = ui.add.date.value; window.addFormState.location = ui.add.location.value;
+                window.addFormState.name = ui.add.name ? ui.add.name.value : ''; 
+                window.addFormState.date = ui.add.date ? ui.add.date.value : ''; 
+                window.addFormState.location = ui.add.location ? ui.add.location.value : '';
                 if (!window.addFormState.name.trim()) { window.customModal.show("Eksik Bilgi", "Lütfen deneme adını girin."); return; }
 
-                ui.add.saveBtn.disabled = true; ui.add.saveBtn.classList.add('opacity-70');
-                ui.add.saveIconNormal.classList.add('hidden-safe'); ui.add.saveIconLoading.classList.remove('hidden-safe');
-                ui.add.saveText.innerText = "Kaydediliyor...";
+                if(ui.add.saveBtn) { ui.add.saveBtn.disabled = true; ui.add.saveBtn.classList.add('opacity-70'); }
+                if(ui.add.saveIconNormal) ui.add.saveIconNormal.classList.add('hidden-safe'); 
+                if(ui.add.saveIconLoading) ui.add.saveIconLoading.classList.remove('hidden-safe');
+                if(ui.add.saveText) ui.add.saveText.innerText = "Kaydediliyor...";
 
                 try {
                     const finalPayload = getCleanExamPayload(window.addFormState);
@@ -1144,46 +1334,17 @@
                         finalPayload.createdAt = serverTimestamp();
                         await addDoc(collection(db, 'artifacts', appId, 'users', window.currentUser.uid, 'exams'), finalPayload); 
                     }
-                    if(window.appNav.goTo) window.appNav.goTo('dashboard');
+                    if(window.appNav && window.appNav.goTo) window.appNav.goTo('dashboard');
                 } catch (err) { window.customModal.show("Kayıt Hatası", "Kaydedilemedi."); } 
                 finally { 
-                    ui.add.saveBtn.disabled = false; ui.add.saveBtn.classList.remove('opacity-70'); 
-                    ui.add.saveIconNormal.classList.remove('hidden-safe'); ui.add.saveIconLoading.classList.add('hidden-safe'); 
-                    ui.add.saveText.innerText = "Denemeyi Kaydet";
+                    if(ui.add.saveBtn) { ui.add.saveBtn.disabled = false; ui.add.saveBtn.classList.remove('opacity-70'); }
+                    if(ui.add.saveIconNormal) ui.add.saveIconNormal.classList.remove('hidden-safe'); 
+                    if(ui.add.saveIconLoading) ui.add.saveIconLoading.classList.add('hidden-safe'); 
+                    if(ui.add.saveText) ui.add.saveText.innerText = "Denemeyi Kaydet";
                 }
             }
         };
         
-        window.settingsLogic = {
-            saveFirebase: () => {
-                const val = ui.settings.firebaseConfig.value.trim();
-                if (!val) { window.customModal.show("Uyarı", "Lütfen bir konfigürasyon girin."); return; }
-                try {
-                    let cleanedStr = val.replace(/const\s+firebaseConfig\s*=\s*/, '').replace(/;$/, '').trim();
-                    cleanedStr = cleanedStr.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
-                    cleanedStr = cleanedStr.replace(/'/g, '"');
-                    
-                    const parsed = JSON.parse(cleanedStr);
-                    if(!parsed.apiKey || !parsed.projectId) throw new Error("Geçersiz veya Eksik Firebase Konfigürasyonu");
-                    
-                    localStorage.setItem('lgs_firebase_config', JSON.stringify(parsed));
-                    window.customModal.show("Başarılı", "Firebase bağlantısı başarıyla kaydedildi! Ayarların aktif olması için uygulama yeniden başlatılıyor...", true, () => {
-                         window.location.reload();
-                    });
-                    setTimeout(() => window.location.reload(), 2000);
-                } catch (err) {
-                    window.customModal.show("Format Hatası", "Girilen konfigürasyon formatı geçersiz. Lütfen Firebase panelinden aldığınız süslü parantezli <b>{ ... }</b> kod bloğunu eksiksiz yapıştırdığınızdan emin olun.<br><br>Hata Detayı: " + err.message);
-                }
-            },
-            clearFirebase: () => {
-                localStorage.removeItem('lgs_firebase_config');
-                window.customModal.show("Bağlantı Kesildi", "Bulut veritabanı bağlantısı sistemden silindi. Çevrimdışı moda geçiliyor...", false, () => {
-                     window.location.reload();
-                });
-                setTimeout(() => window.location.reload(), 2000);
-            }
-        };
-
         // ==========================================
         // 7. SİSTEM BAŞLATMA (Init)
         // ==========================================
@@ -1192,33 +1353,40 @@
                 let fExams = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 fExams.sort((a, b) => new Date(b.date) - new Date(a.date)); 
                 window.examsData = fExams;
-                if(!ui.views.dashboard.classList.contains('hidden-safe')) { if(window.renderDashboard) window.renderDashboard(); } 
+                if(ui.views.dashboard && !ui.views.dashboard.classList.contains('hidden-safe')) { if(window.renderDashboard) window.renderDashboard(); } 
             }, (err) => {
                 console.error("Firestore error:", err);
             });
-            ui.loading.classList.add('hidden-safe'); ui.sidebar.classList.remove('hidden-safe'); ui.main.classList.remove('hidden-safe');
+            if(ui.loading) ui.loading.classList.add('hidden-safe'); 
+            if(ui.sidebar) ui.sidebar.classList.remove('hidden-safe'); 
+            if(ui.main) ui.main.classList.remove('hidden-safe');
             if (window.appNav && window.appNav.goTo) window.appNav.goTo('dashboard');
         };
 
         const initApp = async () => {
             if (window.isLocalMode) {
-                window.currentUser = { uid: 'yerel-kullanici' }; ui.userIdDisplay.innerText = `Kullanıcı: Çevrimdışı Mod`;
-                ui.statusIndicator.className = "absolute -top-1 -right-1 w-3 h-3 rounded-full bg-slate-500 border-2 border-slate-900"; ui.statusIndicator.title = "Yerel Mod";
+                window.currentUser = { uid: 'yerel-kullanici' }; 
+                if(ui.userIdDisplay) ui.userIdDisplay.innerText = `Kullanıcı: Çevrimdışı Mod`;
+                if(ui.statusIndicator) { ui.statusIndicator.className = "absolute -top-1 -right-1 w-3 h-3 rounded-full bg-slate-500 border-2 border-slate-900"; ui.statusIndicator.title = "Yerel Mod"; }
                 window.localSnapshotTrigger = (data) => { let fExams = [...data]; fExams.sort((a, b) => new Date(b.date) - new Date(a.date)); window.examsData = fExams; if(window.renderDashboard) window.renderDashboard(); };
-                ui.loading.classList.add('hidden-safe'); ui.sidebar.classList.remove('hidden-safe'); ui.main.classList.remove('hidden-safe');
+                if(ui.loading) ui.loading.classList.add('hidden-safe'); 
+                if(ui.sidebar) ui.sidebar.classList.remove('hidden-safe'); 
+                if(ui.main) ui.main.classList.remove('hidden-safe');
                 if (window.appNav && window.appNav.goTo) window.appNav.goTo('dashboard');
                 return;
             }
 
             try {
-                ui.loadingText.innerText = "Buluta Bağlanılıyor...";
+                if(ui.loadingText) ui.loadingText.innerText = "Buluta Bağlanılıyor...";
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
             } catch (err) {
-                ui.loading.classList.add('hidden-safe'); ui.sidebar.classList.remove('hidden-safe'); ui.main.classList.remove('hidden-safe');
+                if(ui.loading) ui.loading.classList.add('hidden-safe'); 
+                if(ui.sidebar) ui.sidebar.classList.remove('hidden-safe'); 
+                if(ui.main) ui.main.classList.remove('hidden-safe');
                 if (window.appNav && window.appNav.goTo) window.appNav.goTo('settings');
             }
         };
@@ -1227,14 +1395,14 @@
             onAuthStateChanged(auth, (user) => {
                 if (user) {
                     window.currentUser = user; 
-                    ui.userIdDisplay.innerText = `Kullanıcı ID: ${user.uid.substring(0,6)}`;
-                    ui.statusIndicator.className = "absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-900"; ui.statusIndicator.title = "Buluta Bağlı";
+                    if(ui.userIdDisplay) ui.userIdDisplay.innerText = `Kullanıcı ID: ${user.uid.substring(0,6)}`;
+                    if(ui.statusIndicator) { ui.statusIndicator.className = "absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-900"; ui.statusIndicator.title = "Buluta Bağlı"; }
                     loadFirestoreData(user);
                 }
             });
         }
 
-        initApp(); lucide.createIcons();
+        initApp(); setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 10);
     </script>
 </body>
 </html>
