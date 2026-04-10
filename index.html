@@ -645,6 +645,21 @@
             hide: () => document.getElementById('custom-modal').classList.add('hidden-safe')
         };
 
+        // PDF KONTROL FONKSİYONU - Can damarı
+        window.checkIfPdf = (q) => {
+            if (!q) return false;
+            if (q.isPdf === true || q.isPdf === "true") return true;
+            const fname = q.fileName || (q.fileObj ? q.fileObj.name : '');
+            if (fname && String(fname).toLowerCase().endsWith('.pdf')) return true;
+            const imgData = q.image || q.base64 || '';
+            if (typeof imgData === 'string') {
+                if (imgData.startsWith('data:application/pdf')) return true;
+                if (imgData.includes('application%2Fpdf')) return true;
+                if (imgData.includes('.pdf?alt=media')) return true;
+            }
+            return false;
+        };
+
         const base64ToBlobUrl = (base64, type = 'application/pdf') => {
             try {
                 if(!base64.includes('base64,')) return base64; 
@@ -656,6 +671,7 @@
             } catch (e) { return base64; }
         };
 
+        // YENİ GÖRÜNTÜLEME VE İNDİRME MOTORU
         window.openPdfModal = async (fileData, title) => {
             if (!fileData) {
                 window.customModal.show("Hata", "Dosya içeriği bulunamadı.");
@@ -856,7 +872,7 @@
                 subjects: (examObj.subjects || []).map(s => ({
                     name: String(s.name || ""), correct: Number(s.correct) || 0, incorrect: Number(s.incorrect) || 0, blank: Number(s.blank) || 0,
                     questions: Array.isArray(s.questions) ? s.questions.map(q => ({
-                        id: String(q.id || Date.now().toString()), image: String(q.image || ""), isPdf: Boolean(q.isPdf),
+                        id: String(q.id || Date.now().toString()), image: String(q.image || ""), isPdf: window.checkIfPdf(q),
                         fileName: String(q.fileName || "Soru"), topic: typeof q.topic === 'string' ? q.topic : (q.topic?.topic || "Belirtilmemiş")
                     })) : []
                 }))
@@ -927,30 +943,6 @@
                     }
                 });
             }
-        };
-
-        window.extractQuestionsToPool = () => {
-            window.allQuestionsPool = [];
-            (window.examsData || []).forEach(exam => {
-                (exam.subjects || []).forEach(subj => {
-                    if (subj.questions && subj.questions.length > 0) {
-                        subj.questions.forEach((q, idx) => {
-                            window.allQuestionsPool.push({
-                                globalId: `${exam.id}_${subj.name}_${idx}`,
-                                examId: exam.id,
-                                subjectName: subj.name,
-                                questionIndex: idx,
-                                questionId: q.id,
-                                examName: exam.name,
-                                image: q.image || q.cleanImage || q.originalImage || '',
-                                isPdf: q.isPdf || false,
-                                fileName: q.fileName || 'Soru',
-                                topic: q.topic || "Belirtilmemiş"
-                            });
-                        });
-                    }
-                });
-            });
         };
 
         // ==========================================
@@ -1063,7 +1055,7 @@
                                                     <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i>
                                                 </button>
 
-                                                ${q.isPdf ? `
+                                                ${window.checkIfPdf(q) ? `
                                                     <div class="aspect-[4/3] bg-rose-50/50 p-2 flex flex-col items-center justify-center relative group/inner cursor-pointer transition-colors hover:bg-rose-100" onclick="window.openPdfModalFromExam('${ex.id}', '${subj.name}', '${q.id}')">
                                                         <i data-lucide="file-text" class="w-10 h-10 text-rose-400 mb-2 transition-transform group-hover/inner:scale-110"></i>
                                                         <span class="text-[10px] font-bold text-rose-700 truncate w-full text-center px-2 mb-2">${(q.fileName || 'PDF Dosyası').replace(/"/g, '&quot;')}</span>
@@ -1199,7 +1191,7 @@
                             <div class="check-indicator absolute top-3 right-3 bg-indigo-500 text-white p-1 rounded-full z-20 shadow-sm ${checkClass}"><i data-lucide="check" class="w-4 h-4 text-white font-bold pointer-events-none"></i></div>
                             
                             <div class="image-container aspect-[4/3] bg-slate-100 p-2 flex-1 flex items-center justify-center relative group/inner">
-                                ${q.isPdf ? `
+                                ${window.checkIfPdf(q) ? `
                                     <div class="flex flex-col items-center justify-center w-full h-full bg-rose-50/50 p-2 transition-colors hover:bg-rose-100">
                                         <i data-lucide="file-text" class="w-10 h-10 text-rose-400 mb-2 transition-transform group-hover/inner:scale-110"></i>
                                         <span class="text-[10px] font-bold text-rose-700 truncate w-full text-center px-1 mb-2">${safeFileName}</span>
@@ -1248,7 +1240,7 @@
                             <div class="text-[10px] text-slate-500">${(q.topic || '').replace(/"/g, '&quot;')}</div>
                         </div>
                     </div>
-                    ${q.isPdf ? `
+                    ${window.checkIfPdf(q) ? `
                         <div class="flex-1 flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-slate-300 bg-slate-50 p-4 rounded-xl">
                             <i data-lucide="file-text" class="w-12 h-12 text-slate-400 mb-2"></i>
                             <span class="text-sm font-bold text-slate-600">Bu soru PDF formatındadır.</span>
@@ -1304,9 +1296,9 @@
                             <div class="relative group rounded-lg overflow-hidden border border-slate-200 bg-white flex flex-col">
                                 <button onclick="window.addTestLogic.removeQuestion(${qIdx})" class="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full z-10 hover:bg-red-600 shadow"><i data-lucide="trash-2" class="w-3 h-3 pointer-events-none"></i></button>
                                 
-                                <div class="aspect-[4/3] relative bg-slate-100 flex items-center justify-center p-2 text-center group/inner cursor-pointer" ${q.isPdf ? `onclick="window.openPdfModalFromAddTest(${qIdx})"` : ""}>
+                                <div class="aspect-[4/3] relative bg-slate-100 flex items-center justify-center p-2 text-center group/inner cursor-pointer" ${window.checkIfPdf(q) ? `onclick="window.openPdfModalFromAddTest(${qIdx})"` : ""}>
                                     ${q.isAnalyzing ? `<div class="text-indigo-600 text-center"><i data-lucide="brain" class="w-8 h-8 animate-pulse mb-2 mx-auto"></i><span class="text-xs font-bold block">AI Çalışıyor...</span></div>` 
-                                    : (q.isPdf ? `
+                                    : (window.checkIfPdf(q) ? `
                                         <div class="flex flex-col items-center justify-center w-full h-full bg-indigo-50/50 p-2 transition-colors hover:bg-indigo-100">
                                             <i data-lucide="file-text" class="w-10 h-10 text-indigo-400 mb-2 transition-transform group-hover/inner:scale-110"></i>
                                             <span class="text-[10px] font-bold text-rose-700 truncate w-full text-center px-1 mb-2">${(q.fileName || 'PDF Dosyası').replace(/"/g, '&quot;')}</span>
@@ -1327,7 +1319,7 @@
                                 </div>
                                 <div class="p-2 border-t border-slate-100 bg-slate-50 flex items-center gap-2">
                                     <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Konu:</div>
-                                    <input type="text" value="${(q.topic || '').replace(/"/g, '&quot;')}" onchange="window.addTestLogic.updateQuestionTopic(${qIdx}, this.value)" placeholder="${q.isPdf ? 'Manuel giriniz...' : 'AI belirleyecek...'}" class="flex-1 bg-white border border-slate-200 rounded px-2 py-1 text-xs text-indigo-700 font-semibold focus:outline-none focus:border-indigo-400" />
+                                    <input type="text" value="${(q.topic || '').replace(/"/g, '&quot;')}" onchange="window.addTestLogic.updateQuestionTopic(${qIdx}, this.value)" placeholder="${window.checkIfPdf(q) ? 'Manuel giriniz...' : 'AI belirleyecek...'}" class="flex-1 bg-white border border-slate-200 rounded px-2 py-1 text-xs text-indigo-700 font-semibold focus:outline-none focus:border-indigo-400" />
                                 </div>
                             </div>
                         `).join('')}
@@ -1377,9 +1369,9 @@
                                 <div class="relative group rounded-lg overflow-hidden border border-slate-200 bg-white flex flex-col">
                                     <button onclick="window.addExamLogic.removeQuestion(${sIdx}, ${qIdx})" class="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full z-10 hover:bg-red-600 shadow"><i data-lucide="trash-2" class="w-3 h-3 pointer-events-none"></i></button>
                                     
-                                    <div class="aspect-[4/3] relative bg-slate-100 flex items-center justify-center p-2 text-center group/inner cursor-pointer" ${q.isPdf ? `onclick="window.openPdfModalFromAdd(${sIdx}, ${qIdx})"` : ""}>
+                                    <div class="aspect-[4/3] relative bg-slate-100 flex items-center justify-center p-2 text-center group/inner cursor-pointer" ${window.checkIfPdf(q) ? `onclick="window.openPdfModalFromAdd(${sIdx}, ${qIdx})"` : ""}>
                                         ${q.isAnalyzing ? `<div class="text-indigo-600 text-center"><i data-lucide="brain" class="w-8 h-8 animate-pulse mb-2 mx-auto"></i><span class="text-xs font-bold block">AI Çalışıyor...</span></div>` 
-                                        : (q.isPdf ? `
+                                        : (window.checkIfPdf(q) ? `
                                             <div class="flex flex-col items-center justify-center w-full h-full bg-indigo-50/50 p-2 transition-colors hover:bg-indigo-100">
                                                 <i data-lucide="file-text" class="w-10 h-10 text-indigo-400 mb-2 transition-transform group-hover/inner:scale-110"></i>
                                                 <span class="text-[10px] font-bold text-rose-700 truncate w-full text-center px-1 mb-2">${(q.fileName || 'PDF Dosyası').replace(/"/g, '&quot;')}</span>
@@ -1400,7 +1392,7 @@
                                     </div>
                                     <div class="p-2 border-t border-slate-100 bg-slate-50 flex items-center gap-2">
                                         <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Konu:</div>
-                                        <input type="text" value="${(q.topic || '').replace(/"/g, '&quot;')}" onchange="window.addExamLogic.updateQuestionTopic(${sIdx}, ${qIdx}, this.value)" placeholder="${q.isPdf ? 'Manuel giriniz...' : 'AI belirleyecek...'}" class="flex-1 bg-white border border-slate-200 rounded px-2 py-1 text-xs text-indigo-700 font-semibold focus:outline-none focus:border-indigo-400" />
+                                        <input type="text" value="${(q.topic || '').replace(/"/g, '&quot;')}" onchange="window.addExamLogic.updateQuestionTopic(${sIdx}, ${qIdx}, this.value)" placeholder="${window.checkIfPdf(q) ? 'Manuel giriniz...' : 'AI belirleyecek...'}" class="flex-1 bg-white border border-slate-200 rounded px-2 py-1 text-xs text-indigo-700 font-semibold focus:outline-none focus:border-indigo-400" />
                                     </div>
                                 </div>
                             `).join('')}
@@ -1794,9 +1786,9 @@
 
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
-                    const isPdf = file.type === 'application/pdf';
+                    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
                     
-                    if (!isPdf && !file.type.startsWith('image/')) continue;
+                    if (!isPdf && !file.type.startsWith('image/') && !file.name.match(/\.(jpe?g|png|webp|gif)$/i)) continue;
                     
                     if (file.size > 50 * 1024 * 1024) { 
                         window.customModal.show("Boyut Uyarısı", `<b>${file.name}</b> adlı dosya çok büyük. 50 MB sınırını aştığı için atlandı.`);
@@ -1844,8 +1836,8 @@
                 if(list) list.innerHTML = window.uploadLogic.filesData.map(f => `
                     <li class="p-4 hover:bg-slate-50 flex flex-col md:flex-row md:items-center gap-4">
                         <div class="flex items-center gap-4 md:w-1/3 min-w-0">
-                            <div class="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden relative cursor-pointer group" ${f.isPdf ? `onclick="window.openPdfModalFromUpload('${f.id}')"` : ""}>
-                                ${f.isPdf ? `
+                            <div class="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden relative cursor-pointer group" ${window.checkIfPdf(f) ? `onclick="window.openPdfModalFromUpload('${f.id}')"` : ""}>
+                                ${window.checkIfPdf(f) ? `
                                     <i data-lucide="file-text" class="w-6 h-6 text-rose-400 group-hover:scale-110 transition-transform"></i>
                                 ` : `
                                     <img src="${f.base64}" class="w-full h-full object-cover mix-blend-multiply" />
@@ -1995,7 +1987,7 @@
                             subj.questions.push({
                                 id: Date.now().toString() + "-" + Math.random().toString(36).substr(2, 9),
                                 image: finalImageUrl, 
-                                isPdf: f.isPdf,
+                                isPdf: window.checkIfPdf(f),
                                 fileName: f.fileObj.name,
                                 topic: f.topic || `Soru ${f.questionNo}` 
                             });
@@ -2058,7 +2050,9 @@
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
                     try {
-                        const isPdf = file.type === 'application/pdf';
+                        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+                        if (!isPdf && !file.type.startsWith('image/') && !file.name.match(/\.(jpe?g|png|webp|gif)$/i)) continue;
+                        
                         if (file.size > 50 * 1024 * 1024) {
                             window.customModal.show("Boyut Uyarısı", `<b>${file.name}</b> adlı PDF dosyası çok büyük (${(file.size/1024/1024).toFixed(2)} MB). 50 MB sınırını aştığı için atlandı.`);
                             continue;
@@ -2214,7 +2208,9 @@
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
                     try {
-                        const isPdf = file.type === 'application/pdf';
+                        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+                        if (!isPdf && !file.type.startsWith('image/') && !file.name.match(/\.(jpe?g|png|webp|gif)$/i)) continue;
+                        
                         if (file.size > 50 * 1024 * 1024) {
                             window.customModal.show("Boyut Uyarısı", `<b>${file.name}</b> adlı PDF dosyası çok büyük (${(file.size/1024/1024).toFixed(2)} MB). 50 MB sınırını aştığı için atlandı.`);
                             continue;
